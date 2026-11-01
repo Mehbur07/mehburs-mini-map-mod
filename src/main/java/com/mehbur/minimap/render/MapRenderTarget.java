@@ -9,6 +9,8 @@ import com.mojang.blaze3d.systems.CommandEncoder;
 import com.mojang.blaze3d.systems.GpuDevice;
 import com.mojang.blaze3d.systems.RenderPass;
 import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.blaze3d.textures.FilterMode;
+import com.mojang.blaze3d.textures.GpuSampler;
 import com.mojang.blaze3d.textures.GpuTexture;
 import com.mojang.blaze3d.textures.GpuTextureView;
 import java.nio.ByteBuffer;
@@ -73,7 +75,9 @@ final class MapRenderTarget implements AutoCloseable {
 			colorView, Optional.of(CLEAR_COLOR), depthView, OptionalDouble.of(CLEAR_DEPTH))) {
 			pass.setPipeline(MapPipelines.OPAQUE);
 			pass.setUniform(MapPipelines.CAMERA_UNIFORM, cameraBuffer);
-			pass.bindTexture(MapPipelines.ATLAS_SAMPLER, atlas.getTextureView(), atlas.getSampler());
+			// Point-sampling a fixed mipmap level still leaves waves when a texel covers 1.5 pixels, because texels alternate between one and two pixels wide.
+			GpuSampler sampler = minTextureLod > 0f ? RenderSystem.getSamplerCache().getClampToEdge(FilterMode.LINEAR, true) : atlas.getSampler();
+			pass.bindTexture(MapPipelines.ATLAS_SAMPLER, atlas.getTextureView(), sampler);
 			pass.setIndexBuffer(indexBuffer, indices.type());
 			for (int i = 0; i < meshes.size(); i++) {
 				ChunkMesh mesh = meshes.get(i);

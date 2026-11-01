@@ -1,6 +1,8 @@
 package com.mehbur.minimap.gametest;
 
 import com.mehbur.minimap.MehbursMiniMapClient;
+import com.mehbur.minimap.config.MinimapConfig;
+import com.mehbur.minimap.input.BigMapScreen;
 import com.mehbur.minimap.render.MinimapHud;
 import com.mehbur.minimap.render.terrain.TerrainCache;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
@@ -27,6 +29,7 @@ public class MapBenchmark implements ClientModInitializer {
 	private static final int WARMUP_TICKS = 60;
 	private static final int WINDOW_TICKS = 300;
 	private static final float TURN_DEGREES_PER_TICK = 6f;
+	private static final float DEFAULT_BIG_MAP_ZOOM = 0.5f;
 	private static final int MOVE_BLOCKS_PER_TICK = 2;
 	private static final int DESCEND_TOP_Y = 40;
 	private static final int DESCEND_RANGE = 60;
@@ -37,7 +40,8 @@ public class MapBenchmark implements ClientModInitializer {
 	private static final double NANOS_PER_MILLI = 1_000_000.0;
 
 	private static final String[] PHASES = {
-		"off-still", "on-still", "off-turning", "on-turning", "off-moving", "on-moving", "off-descending", "on-descending"
+		"off-still", "on-still", "big-still", "off-turning", "on-turning", "big-turning", "bigfar-turning",
+		"off-moving", "on-moving", "big-moving", "off-descending", "on-descending"
 	};
 
 	private final LongArrayList frameNanos = new LongArrayList();
@@ -109,7 +113,11 @@ public class MapBenchmark implements ClientModInitializer {
 
 	private void runWindow(Minecraft client) {
 		String name = PHASES[phase];
-		MinimapHud.setEnabled(name.startsWith("on"));
+		MinimapHud.setEnabled(!name.startsWith("off"));
+		if (windowTick == 0) {
+			MehbursMiniMapClient.config().bigMapZoom = name.startsWith("bigfar") ? MinimapConfig.MIN_ZOOM : DEFAULT_BIG_MAP_ZOOM;
+			client.gui.setScreen(name.startsWith("big") ? new BigMapScreen() : null);
+		}
 		windowTick++;
 		movePlayer(client, name);
 		if (windowTick < WARMUP_TICKS + WINDOW_TICKS) {

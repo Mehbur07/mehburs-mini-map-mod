@@ -13,6 +13,9 @@ public final class MapCamera {
 	private static final double VIEW_REACH = 1.8;
 	/** The map's top edge looks 40 degrees below the horizon, so ground further down is seen further away. */
 	private static final double REACH_PER_BLOCK_OF_ALTITUDE = 1.2;
+	private static final float BLOCK_TEXTURE_SIZE = 16f;
+	/** The game's highest mipmap setting. */
+	private static final double MAX_TEXTURE_LOD = 4.0;
 
 	private MapCamera() {
 	}
@@ -20,6 +23,23 @@ public final class MapCamera {
 	/** Blocks from the map's center to its edge at a zoom level. */
 	public static float radiusBlocks(float zoom) {
 		return BASE_RADIUS_BLOCKS / zoom;
+	}
+
+	/**
+	 * The mipmap level that puts one texel on each screen pixel. Sampling more texels than pixels leaves wave
+	 * patterns across flat ground, so one fixed level for the whole map looks steadier than per-pixel selection.
+	 */
+	public static float textureLod(float pixelsPerBlock) {
+		double lod = Math.log(BLOCK_TEXTURE_SIZE / pixelsPerBlock) / Math.log(2.0);
+		return (float) Math.clamp(lod, 0.0, MAX_TEXTURE_LOD);
+	}
+
+	/** A zoom between two levels. Interpolating logarithmically makes the view scale at an even pace. */
+	public static float blendZoom(float from, float to, float amount) {
+		if (from == to || amount <= 0f) {
+			return from;
+		}
+		return amount >= 1f ? to : (float) Math.exp(Math.log(from) + (Math.log(to) - Math.log(from)) * amount);
 	}
 
 	/**

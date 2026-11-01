@@ -62,4 +62,20 @@ class MapCameraTest {
 	void zoomingInShrinksTheVisibleRadius() {
 		assertTrue(MapCamera.radiusBlocks(4f) < MapCamera.radiusBlocks(1f));
 	}
+
+	@Test
+	void blendedZoomStaysBetweenItsEnds() {
+		assertEquals(1f, MapCamera.blendZoom(1f, 0.25f, 0f), TOLERANCE);
+		assertEquals(0.25f, MapCamera.blendZoom(1f, 0.25f, 1f), TOLERANCE);
+		assertEquals(0.5f, MapCamera.blendZoom(1f, 0.25f, 0.5f), TOLERANCE);
+	}
+
+	@Test
+	void textureLodPutsOneTexelOnEachPixel() {
+		assertEquals(0f, MapCamera.textureLod(16f), TOLERANCE);
+		assertEquals(0f, MapCamera.textureLod(40f), TOLERANCE);
+		assertEquals(1f, MapCamera.textureLod(8f), TOLERANCE);
+		assertEquals(2f, MapCamera.textureLod(4f), TOLERANCE);
+		assertEquals(4f, MapCamera.textureLod(0.1f), TOLERANCE);
+	}
 }

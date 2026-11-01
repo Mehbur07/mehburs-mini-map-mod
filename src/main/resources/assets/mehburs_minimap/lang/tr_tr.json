@@ -1,0 +1,6 @@
+{
+  "key.category.mehburs_minimap.main": "Mehbur's Mini Map",
+  "key.mehburs_minimap.toggle_map": "Büyük Haritayı Aç/Kapat",
+  "screen.mehburs_minimap.big_map": "Büyük Harita",
+  "hud.mehburs_minimap.fps": "%s FPS"
+}

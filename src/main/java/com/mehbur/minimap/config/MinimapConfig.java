@@ -39,9 +39,13 @@ public final class MinimapConfig {
 	public int mapSize = 80;
 	public Corner corner = Corner.TOP_LEFT;
 	public float zoom = 1f;
+	public float bigMapZoom = 0.5f;
 	public boolean northLocked = false;
 	public boolean simplifyDistantTextures = true;
 	public boolean autoCaveMode = true;
+
+	public boolean showFps = true;
+	public boolean showCoordinates = true;
 
 	public boolean showMobs = true;
 	public boolean showPlayers = true;
@@ -94,6 +98,7 @@ public final class MinimapConfig {
 	private void sanitize() {
 		mapSize = Math.clamp(mapSize, MIN_MAP_SIZE, MAX_MAP_SIZE);
 		zoom = Float.isNaN(zoom) ? 1f : Math.clamp(zoom, MIN_ZOOM, MAX_ZOOM);
+		bigMapZoom = Float.isNaN(bigMapZoom) ? 0.5f : Math.clamp(bigMapZoom, MIN_ZOOM, MAX_ZOOM);
 		animationMillis = Math.clamp(animationMillis, 0, MAX_ANIMATION_MILLIS);
 		if (corner == null) {
 			corner = Corner.TOP_LEFT;

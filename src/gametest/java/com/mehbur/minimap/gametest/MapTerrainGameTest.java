@@ -1,6 +1,9 @@
 package com.mehbur.minimap.gametest;
 
 import com.mehbur.minimap.MehbursMiniMapClient;
+import com.mehbur.minimap.config.MinimapConfig;
+import com.mehbur.minimap.input.BigMapScreen;
+import com.mehbur.minimap.input.MinimapKeys;
 import com.mehbur.minimap.render.terrain.MapLayerTracker;
 import com.mehbur.minimap.render.terrain.TerrainCache;
 import com.mojang.datafixers.util.Pair;
@@ -8,6 +11,7 @@ import net.fabricmc.fabric.api.client.gametest.v1.FabricClientGameTest;
 import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
 import net.fabricmc.fabric.api.client.gametest.v1.context.TestServerContext;
 import net.fabricmc.fabric.api.client.gametest.v1.context.TestSingleplayerContext;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.worldselection.WorldCreationUiState;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Holder;
@@ -16,6 +20,7 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.LightLayer;
 import net.minecraft.world.level.biome.Biome;
 import net.minecraft.world.level.biome.Biomes;
+import org.lwjgl.glfw.GLFW;
 
 /** Captures the map in known situations. Screenshots land in build/run/clientGameTest/screenshots. */
 public class MapTerrainGameTest implements FabricClientGameTest {
@@ -28,8 +33,75 @@ public class MapTerrainGameTest implements FabricClientGameTest {
 	public void runTest(ClientGameTestContext context) {
 		context.runOnClient(client -> client.options.renderDistance().set(RENDER_DISTANCE));
 		testLandmarks(context);
+		testBigMap(context);
 		testBuiltCave(context);
 		testRealTerrain(context);
+	}
+
+	/** The M key, the animation, wheel zoom, closing, and the text lines in every corner. */
+	private static void testBigMap(ClientGameTestContext context) {
+		try (TestSingleplayerContext world = context.worldBuilder().create()) {
+			TestServerContext server = world.getServer();
+			server.runCommand("time set noon");
+			server.runCommand("fill 0 -60 -40 1 -55 -40 gold_block"); // north, outside the small map
+			lookAt(context, server, "tp @a 0.5 -60 0.5 180 0");
+			context.takeScreenshot("bigmap-closed");
+
+			String category = context.computeOnClient(client -> MinimapKeys.TOGGLE_MAP.getCategory().label().getString());
+			if (!"Mehbur's Mini Map".equals(category)) {
+				throw new AssertionError("Key category shows as " + category);
+			}
+
+			float zoomBefore = context.computeOnClient(client -> MehbursMiniMapClient.config().bigMapZoom);
+			context.getInput().pressKey(GLFW.GLFW_KEY_M);
+			context.waitTicks(2);
+			context.takeScreenshot("bigmap-opening");
+			context.waitTicks(MESH_SETTLE_TICKS);
+			assertBigMapOpen(context, true);
+			boolean paused = context.computeOnClient(Minecraft::isPaused);
+			if (paused) {
+				throw new AssertionError("The big map paused the game");
+			}
+			context.takeScreenshot("bigmap-open");
+
+			context.getInput().scroll(3.0);
+			context.waitTicks(5);
+			float zoomedIn = context.computeOnClient(client -> MehbursMiniMapClient.config().bigMapZoom);
+			if (zoomedIn <= zoomBefore) {
+				throw new AssertionError("Scrolling up did not zoom in");
+			}
+			context.takeScreenshot("bigmap-zoomed-in");
+			context.getInput().scroll(-3.0);
+			context.waitTicks(5);
+
+			context.getInput().pressKey(GLFW.GLFW_KEY_M);
+			context.waitTicks(2);
+			assertBigMapOpen(context, false);
+			context.takeScreenshot("bigmap-closing");
+			context.waitTicks(20);
+			context.takeScreenshot("bigmap-closed-again");
+
+			context.getInput().pressKey(GLFW.GLFW_KEY_M);
+			context.waitTicks(10);
+			assertBigMapOpen(context, true);
+			context.getInput().pressKey(GLFW.GLFW_KEY_ESCAPE);
+			context.waitTicks(2);
+			assertBigMapOpen(context, false);
+
+			for (MinimapConfig.Corner corner : MinimapConfig.Corner.values()) {
+				context.runOnClient(client -> MehbursMiniMapClient.config().corner = corner);
+				context.waitTicks(5);
+				context.takeScreenshot("corner-" + corner);
+			}
+			context.runOnClient(client -> MehbursMiniMapClient.config().corner = MinimapConfig.Corner.TOP_LEFT);
+		}
+	}
+
+	private static void assertBigMapOpen(ClientGameTestContext context, boolean expected) {
+		boolean actual = context.computeOnClient(client -> client.gui.screen() instanceof BigMapScreen);
+		if (actual != expected) {
+			throw new AssertionError("Big map open: expected " + expected + ", was " + actual);
+		}
 	}
 
 	/** A cave dug at known positions, plus the places that must keep showing the surface. */
