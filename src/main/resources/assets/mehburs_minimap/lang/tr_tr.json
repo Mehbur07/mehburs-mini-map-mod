@@ -1,6 +1,12 @@
 {
   "key.category.mehburs_minimap.main": "Mehbur's Mini Map",
   "key.mehburs_minimap.toggle_map": "Büyük Haritayı Aç/Kapat",
+  "key.mehburs_minimap.toggle_death_line": "Ölüm Çizgisini Aç/Kapat",
+  "key.mehburs_minimap.remove_death_marker": "Ölüm Üçgenini Kaldır (Shift ile)",
   "screen.mehburs_minimap.big_map": "Büyük Harita",
-  "hud.mehburs_minimap.fps": "%s FPS"
+  "hud.mehburs_minimap.fps": "%s FPS",
+  "message.mehburs_minimap.death_line_on": "Ölüm çizgisi açık",
+  "message.mehburs_minimap.death_line_off": "Ölüm çizgisi kapalı",
+  "message.mehburs_minimap.death_marker_removed": "Ölüm işareti bir sonraki ölüme kadar kaldırıldı",
+  "message.mehburs_minimap.no_death": "Burada henüz kayıtlı bir ölüm yok"
 }

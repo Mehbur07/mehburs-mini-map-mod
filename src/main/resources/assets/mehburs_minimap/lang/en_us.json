@@ -1,6 +1,12 @@
 {
   "key.category.mehburs_minimap.main": "Mehbur's Mini Map",
   "key.mehburs_minimap.toggle_map": "Toggle Big Map",
+  "key.mehburs_minimap.toggle_death_line": "Toggle Death Line",
+  "key.mehburs_minimap.remove_death_marker": "Remove Death Triangle (with Shift)",
   "screen.mehburs_minimap.big_map": "Big Map",
-  "hud.mehburs_minimap.fps": "%s FPS"
+  "hud.mehburs_minimap.fps": "%s FPS",
+  "message.mehburs_minimap.death_line_on": "Death line on",
+  "message.mehburs_minimap.death_line_off": "Death line off",
+  "message.mehburs_minimap.death_marker_removed": "Death marker removed until your next death",
+  "message.mehburs_minimap.no_death": "No death saved here yet"
 }

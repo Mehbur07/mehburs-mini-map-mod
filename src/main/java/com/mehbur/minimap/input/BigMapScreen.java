@@ -46,6 +46,9 @@ public final class BigMapScreen extends Screen {
 			onClose();
 			return true;
 		}
+		if (minecraft.player != null && MinimapKeys.handleDeathKeys(event, minecraft.player)) {
+			return true;
+		}
 		return super.keyPressed(event);
 	}
 

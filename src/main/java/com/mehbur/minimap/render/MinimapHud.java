@@ -2,6 +2,7 @@ package com.mehbur.minimap.render;
 
 import com.mehbur.minimap.MehbursMiniMapClient;
 import com.mehbur.minimap.config.MinimapConfig;
+import com.mehbur.minimap.death.DeathMarkers;
 import com.mehbur.minimap.entity.EntityRadar;
 import com.mehbur.minimap.input.BigMapScreen;
 import com.mehbur.minimap.render.terrain.CaveDetector;
@@ -77,6 +78,7 @@ public final class MinimapHud implements AutoCloseable {
 	}
 
 	private void tick(Minecraft minecraft) {
+		DeathMarkers.INSTANCE.tick(minecraft);
 		if (minecraft.level == null || minecraft.player == null) {
 			terrain.clear();
 			EntityRadar.INSTANCE.clear();
@@ -143,6 +145,7 @@ public final class MinimapHud implements AutoCloseable {
 		graphics.blit(target.colorView(), RenderSystem.getSamplerCache().getClampToEdge(filter),
 			rect.x(), rect.y(), rect.x() + rect.size(), rect.bottom(), 0f, 1f, 1f, 0f);
 		drawFrame(graphics, rect);
+		DeathMarkers.INSTANCE.draw(graphics, config, minecraft.level.dimension().identifier().toString(), lastViewProjection, rect, lastPosition, MapCamera.radiusBlocks(lastZoom));
 		EntityRadar.INSTANCE.draw(graphics, config, lastViewProjection, rect, lastPosition, partialTick);
 		drawPlayerDot(graphics, rect.centerX(), rect.centerY(), OPAQUE | config.playerDotColor);
 

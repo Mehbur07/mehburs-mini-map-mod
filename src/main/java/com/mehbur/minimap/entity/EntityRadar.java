@@ -2,6 +2,7 @@ package com.mehbur.minimap.entity;
 
 import com.mehbur.minimap.config.MinimapConfig;
 import com.mehbur.minimap.render.MapLayout;
+import com.mehbur.minimap.render.MapProjector;
 import com.mehbur.minimap.render.terrain.CaveDetector;
 import com.mehbur.minimap.render.terrain.MapLayerTracker;
 import java.util.ArrayList;
@@ -16,7 +17,6 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.phys.Vec3;
 import org.joml.Matrix4f;
-import org.joml.Vector4f;
 
 /**
  * The dots on the map. Deciding which entities count happens once per tick, because it reads blocks and light;
@@ -51,7 +51,7 @@ public final class EntityRadar {
 
 	private final List<Tracked> tracked = new ArrayList<>();
 	private final List<Dot> dots = new ArrayList<>();
-	private final Vector4f clip = new Vector4f();
+	private final MapProjector projector = new MapProjector();
 
 	private EntityRadar() {
 	}
@@ -102,11 +102,11 @@ public final class EntityRadar {
 				continue;
 			}
 			Vec3 position = item.entity.getPosition(partialTick);
-			if (!project(viewProjection, position, cameraPosition)) {
+			if (!projector.project(viewProjection, position.x - cameraPosition.x, position.y - cameraPosition.y, position.z - cameraPosition.z)) {
 				continue;
 			}
-			float exactX = guiX(rect);
-			float exactY = guiY(rect);
+			float exactX = projector.guiX(rect);
+			float exactY = projector.guiY(rect);
 			int x = Math.round(exactX);
 			int y = Math.round(exactY);
 			int radius = radius(item.type);
@@ -135,28 +135,17 @@ public final class EntityRadar {
 		};
 	}
 
-	/** Leaves the result in {@link #clip}. Returns false for points behind the camera. */
-	private boolean project(Matrix4f viewProjection, Vec3 position, Vec3 cameraPosition) {
-		clip.set((float) (position.x - cameraPosition.x), (float) (position.y - cameraPosition.y), (float) (position.z - cameraPosition.z), 1f);
-		viewProjection.transform(clip);
-		return clip.w > 0f;
-	}
-
-	private float guiX(MapLayout.Rect rect) {
-		return rect.x() + (clip.x / clip.w + 1f) * 0.5f * rect.size();
-	}
-
-	private float guiY(MapLayout.Rect rect) {
-		return rect.y() + (1f - clip.y / clip.w) * 0.5f * rect.size();
-	}
-
 	/** The on-screen direction of flight, found by projecting a point ahead of the arrow the same way as the arrow itself. */
 	private float flightAngle(Entity entity, Matrix4f viewProjection, Vec3 position, Vec3 cameraPosition, MapLayout.Rect rect, float x, float y) {
 		Vec3 motion = entity.getDeltaMovement();
-		if (motion.lengthSqr() < MIN_MOTION_SQR || !project(viewProjection, position.add(motion.normalize().scale(FLIGHT_SAMPLE_BLOCKS)), cameraPosition)) {
+		if (motion.lengthSqr() < MIN_MOTION_SQR) {
 			return 0f;
 		}
-		return (float) Math.atan2(guiY(rect) - y, guiX(rect) - x);
+		Vec3 ahead = position.add(motion.normalize().scale(FLIGHT_SAMPLE_BLOCKS)).subtract(cameraPosition);
+		if (!projector.project(viewProjection, ahead.x, ahead.y, ahead.z)) {
+			return 0f;
+		}
+		return (float) Math.atan2(projector.guiY(rect) - y, projector.guiX(rect) - x);
 	}
 
 	/** The front of the bar is lighter, so that the direction of flight can be told from its back. */
