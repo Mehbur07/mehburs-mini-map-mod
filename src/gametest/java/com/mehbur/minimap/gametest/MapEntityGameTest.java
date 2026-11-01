@@ -22,6 +22,9 @@ import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntitySpawnReason;
 import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.projectile.arrow.SpectralArrow;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 import org.lwjgl.glfw.GLFW;
 
 /** Checks every dot rule against mobs placed at known positions. Screenshots land in build/run/clientGameTest/screenshots. */
@@ -30,8 +33,9 @@ public class MapEntityGameTest implements FabricClientGameTest {
 	private static final String STAY = "{NoAI:1b,Silent:1b,PersistenceRequired:1b}";
 	private static final String REMOTE_PLAYER = "other-player";
 	private static final int REMOTE_PLAYER_ENTITY_ID = Integer.MAX_VALUE - 1;
+	private static final double ANGLE_TOLERANCE_DEGREES = 25.0;
 
-	private record Seen(EntityDotType type, int x, int y, String name) {
+	private record Seen(EntityDotType type, int x, int y, float angle, String name) {
 	}
 
 	@Override
@@ -101,7 +105,94 @@ public class MapEntityGameTest implements FabricClientGameTest {
 			testHover(context);
 			testToggles(context);
 			testCaveLayer(context, server);
+			testItemsAndProjectiles(context, server);
 		}
+	}
+
+	private static void testItemsAndProjectiles(ClientGameTestContext context, TestServerContext server) {
+		server.runCommand("tp @a 200.5 -60 200.5 180 0");
+		context.waitTicks(SETTLE_TICKS);
+		String keep = "{NoGravity:1b,Motion:[0.0,0.0,0.0]}";
+		summon(server, "item", "208.5 -60 192.5", "{Item:{id:\"minecraft:diamond\",count:1},PickupDelay:32767s}");
+		summon(server, "ender_pearl", "192.5 -57 192.5", keep);
+		summon(server, "arrow", "200.5 -52 220.5", "{NoGravity:1b,Motion:[0.0,0.0,-1.0]}");
+		summon(server, "trident", "180.5 -52 200.5", "{NoGravity:1b,Motion:[1.0,0.0,0.0]}");
+		summon(server, "eye_of_ender", "208.5 -58 208.5", "{}");
+		summon(server, "spectral_arrow", "195.5 -58 205.5", "{Motion:[0.0,-1.0,0.0]}");
+		context.waitTicks(12);
+		context.takeScreenshot("shots-facing-north");
+
+		Map<String, Seen> seen = seen(context);
+		assertType(seen, "item", EntityDotType.ITEM);
+		assertType(seen, "ender_pearl", EntityDotType.ENDER_PEARL);
+		assertType(seen, "eye_of_ender", EntityDotType.ENDER_PEARL);
+		assertType(seen, "arrow", EntityDotType.ARROW);
+		assertType(seen, "trident", EntityDotType.ARROW);
+		assertPointsTo(seen.get("arrow"), -90.0, "an arrow flying north, seen facing north");
+		assertPointsTo(seen.get("trident"), 0.0, "a trident flying east, seen facing north");
+		String diamond = context.computeOnClient(client -> new ItemStack(Items.DIAMOND).getHoverName().getString());
+		check(diamond.equals(seen.get("item").name), "the item's dot is named " + seen.get("item").name);
+
+		context.waitTicks(SETTLE_TICKS);
+		seen = seen(context);
+		assertAbsent(seen, "spectral_arrow", "an arrow stuck in the ground");
+		boolean stuckArrowExists = context.computeOnClient(client -> {
+			for (Entity entity : client.level.entitiesForRendering()) {
+				if (entity instanceof SpectralArrow) {
+					return true;
+				}
+			}
+			return false;
+		});
+		check(stuckArrowExists, "the stuck arrow should still exist, or this test proves nothing");
+
+		// The bar follows the camera: north is on the right when facing west.
+		server.runCommand("kill @e[type=minecraft:arrow]");
+		server.runCommand("tp @a 200.5 -60 200.5 90 0");
+		context.waitTicks(5);
+		summon(server, "arrow", "200.5 -52 220.5", "{NoGravity:1b,Motion:[0.0,0.0,-1.0]}");
+		context.waitTicks(12);
+		context.takeScreenshot("shots-facing-west");
+		assertPointsTo(seen(context).get("arrow"), 0.0, "an arrow flying north, seen facing west");
+
+		context.getInput().pressKey(GLFW.GLFW_KEY_M);
+		context.waitTicks(SETTLE_TICKS);
+		Seen item = seen(context).get("item");
+		int scale = context.computeOnClient(client -> client.getWindow().getGuiScale());
+		context.getInput().setCursorPos(item.x * scale, item.y * scale);
+		context.waitTicks(5);
+		context.takeScreenshot("shots-big-map-hover-item");
+		context.getInput().setCursorPos(2.0, 2.0);
+		context.getInput().pressKey(GLFW.GLFW_KEY_M);
+		context.waitTicks(20);
+
+		summon(server, "arrow", "206.5 -52 194.5", "{NoGravity:1b,Motion:[0.0,0.0,-0.02]}");
+		context.waitTicks(5);
+		seen = seen(context);
+		assertType(seen, "arrow", EntityDotType.ARROW);
+		context.runOnClient(client -> {
+			MinimapConfig config = MehbursMiniMapClient.config();
+			config.showItems = false;
+			config.showArrows = false;
+			config.showEnderPearls = false;
+		});
+		context.waitTicks(5);
+		seen = seen(context);
+		assertAbsent(seen, "item", "an item with item dots turned off");
+		assertAbsent(seen, "arrow", "an arrow with arrow bars turned off");
+		assertAbsent(seen, "ender_pearl", "a pearl with pearl dots turned off");
+		context.runOnClient(client -> {
+			MinimapConfig config = MehbursMiniMapClient.config();
+			config.showItems = true;
+			config.showArrows = true;
+			config.showEnderPearls = true;
+		});
+	}
+
+	private static void assertPointsTo(Seen bar, double degrees, String description) {
+		check(bar != null, "No bar for " + description);
+		double difference = Math.abs(Math.toDegrees(bar.angle) - degrees);
+		check(difference <= ANGLE_TOLERANCE_DEGREES, "The bar of " + description + " points to " + Math.toDegrees(bar.angle) + " degrees, not " + degrees);
 	}
 
 	private static void testHover(ClientGameTestContext context) {
@@ -238,7 +329,7 @@ public class MapEntityGameTest implements FabricClientGameTest {
 			Map<String, Seen> result = new HashMap<>();
 			for (EntityRadar.Dot dot : EntityRadar.INSTANCE.dots()) {
 				String id = dot.entity() instanceof RemotePlayer ? REMOTE_PLAYER : BuiltInRegistries.ENTITY_TYPE.getKey(dot.entity().getType()).getPath();
-				result.put(id, new Seen(dot.type(), dot.x(), dot.y(), dot.entity().getName().getString()));
+				result.put(id, new Seen(dot.type(), dot.x(), dot.y(), dot.angle(), dot.entity().getName().getString()));
 			}
 			return result;
 		});

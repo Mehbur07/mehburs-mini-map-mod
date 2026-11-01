@@ -21,14 +21,15 @@ import net.minecraft.util.Util;
  * Measures real frame rates, which client gametests cannot do because they lock frames to game ticks.
  * Runs only with {@code -Dmehburs_minimap.bench=<save name>}: opens that save, then compares the game with and
  * without the map while standing, turning, travelling into new chunks, descending underground, which makes the
- * map rebuild its layer, and surrounded by a crowd of mobs. Results go to the log, then the game exits.
+ * map rebuild its layer, and surrounded by crowds of mobs, items and arrows. Results go to the log, then the game exits.
  */
 public class MapBenchmark implements ClientModInitializer {
 	private static final String SAVE_PROPERTY = "mehburs_minimap.bench";
 	private static final int SETTLE_TICKS = 200;
 	private static final int WARMUP_TICKS = 60;
-	private static final int WINDOW_TICKS = 200;
+	private static final int WINDOW_TICKS = 150;
 	private static final int MOB_COUNT = 500;
+	private static final int ARROW_COUNT = 100;
 	private static final double MOB_RADIUS = 30.0;
 	private static final double GOLDEN_ANGLE = 2.39996;
 	private static final String MOB_TAG = "minimap_bench";
@@ -45,7 +46,7 @@ public class MapBenchmark implements ClientModInitializer {
 
 	private static final String[] PHASES = {
 		"off-still", "on-still", "big-still", "off-turning", "on-turning", "big-turning", "bigfar-turning",
-		"off-moving", "on-moving", "big-moving", "off-descending", "on-descending", "off-mobs", "on-mobs", "big-mobs"
+		"off-moving", "on-moving", "big-moving", "off-descending", "on-descending", "off-mobs", "on-mobs", "big-mobs", "off-items", "on-items", "big-items"
 	};
 
 	private final LongArrayList frameNanos = new LongArrayList();
@@ -128,7 +129,7 @@ public class MapBenchmark implements ClientModInitializer {
 			return;
 		}
 		report(name);
-		if (name.equals("big-mobs")) {
+		if (name.equals("big-mobs") || name.equals("big-items")) {
 			runCommand(client, "kill @e[tag=" + MOB_TAG + "]");
 		}
 		windowTick = 0;
@@ -157,7 +158,12 @@ public class MapBenchmark implements ClientModInitializer {
 		} else if (windowTick == 1) {
 			teleport(client, startX, startY, startZ);
 			if (name.equals("off-mobs")) {
-				summonMobs(client);
+				summonCrowd(client, MOB_COUNT, "cow", "{NoAI:1b,Silent:1b,Tags:[\"" + MOB_TAG + "\"]}");
+			} else if (name.equals("off-items")) {
+				// The drops of the mob crowd would otherwise count as part of this crowd.
+				runCommand(client, "kill @e[type=minecraft:item]");
+				summonCrowd(client, MOB_COUNT, "item", "{Item:{id:\"minecraft:cobblestone\",count:1},PickupDelay:32767s,NoGravity:1b,Tags:[\"" + MOB_TAG + "\"]}");
+				summonCrowd(client, ARROW_COUNT, "arrow", "{NoGravity:1b,Motion:[0.001,0.0,0.0],Tags:[\"" + MOB_TAG + "\"]}");
 			}
 		} else if (windowTick == WARMUP_TICKS && name.equals("off-still")) {
 			// Otherwise the drops of the previous round's crowd would slow this round down.
@@ -167,12 +173,11 @@ public class MapBenchmark implements ClientModInitializer {
 	}
 
 	/** A crowd far beyond normal play, all inside the map, to show what the radar costs at worst. */
-	private void summonMobs(Minecraft client) {
-		for (int i = 0; i < MOB_COUNT; i++) {
+	private void summonCrowd(Minecraft client, int count, String type, String data) {
+		for (int i = 0; i < count; i++) {
 			double angle = i * GOLDEN_ANGLE;
-			double distance = MOB_RADIUS * Math.sqrt((double) i / MOB_COUNT);
-			runCommand(client, "summon minecraft:cow " + (startX + Math.cos(angle) * distance) + " " + startY + " " + (startZ + Math.sin(angle) * distance)
-				+ " {NoAI:1b,Silent:1b,Tags:[\"" + MOB_TAG + "\"]}");
+			double distance = MOB_RADIUS * Math.sqrt((double) i / count);
+			runCommand(client, "summon minecraft:" + type + " " + (startX + Math.cos(angle) * distance) + " " + startY + " " + (startZ + Math.sin(angle) * distance) + " " + data);
 		}
 	}
 

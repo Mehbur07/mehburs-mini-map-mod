@@ -2,7 +2,7 @@
   "required": true,
   "package": "com.mehbur.minimap.mixin",
   "compatibilityLevel": "JAVA_25",
-  "client": ["ClientLevelMixin"],
+  "client": ["AbstractArrowAccessor", "ClientLevelMixin"],
   "injectors": {
     "defaultRequire": 1
   }

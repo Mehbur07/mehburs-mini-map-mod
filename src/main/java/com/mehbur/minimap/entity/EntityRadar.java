@@ -11,6 +11,7 @@ import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
+import net.minecraft.util.ARGB;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.phys.Vec3;
@@ -31,12 +32,21 @@ public final class EntityRadar {
 	private static final int DOT_RADIUS = 1;
 	private static final int BOSS_DOT_RADIUS = 2;
 	private static final int HOVER_RADIUS = 4;
+	private static final int BAR_HALF_LENGTH = 2;
+	private static final int BAR_TIP_LENGTH = 1;
+	private static final int TIP_TINT_COLOR = 0xFFFFFFFF;
+	private static final double FLIGHT_SAMPLE_BLOCKS = 2.0;
+	private static final double MIN_MOTION_SQR = 1.0E-6;
 
 	private record Tracked(Entity entity, EntityDotType type) {
 	}
 
-	/** A dot as last drawn, in GUI coordinates. */
-	public record Dot(Entity entity, EntityDotType type, int x, int y) {
+	/**
+	 * A dot as last drawn, in GUI coordinates.
+	 *
+	 * @param angle radians from the screen's right toward its bottom, for types drawn as a bar
+	 */
+	public record Dot(Entity entity, EntityDotType type, int x, int y, float angle) {
 	}
 
 	private final List<Tracked> tracked = new ArrayList<>();
@@ -55,7 +65,7 @@ public final class EntityRadar {
 		tracked.clear();
 		for (Entity entity : level.entitiesForRendering()) {
 			EntityDotType type = entity == viewer || !isSeen(entity, viewer) ? null : EntityClassifier.classify(entity, viewer);
-			if (type != null && isEnabled(type, config) && isOnMapLayer(level, entity, layerY)) {
+			if (type != null && type.isEnabled(config) && isOnMapLayer(level, entity, layerY)) {
 				tracked.add(new Tracked(entity, type));
 			}
 		}
@@ -68,10 +78,6 @@ public final class EntityRadar {
 			return false;
 		}
 		return !entity.isSpectator() || viewer.isSpectator();
-	}
-
-	private static boolean isEnabled(EntityDotType type, MinimapConfig config) {
-		return type == EntityDotType.OTHER_PLAYER ? config.showPlayers : config.showMobs;
 	}
 
 	/** Hides entities the current map cannot show: those in rock below the surface view, and those above or behind rock in a cave view. */
@@ -96,21 +102,74 @@ public final class EntityRadar {
 				continue;
 			}
 			Vec3 position = item.entity.getPosition(partialTick);
-			clip.set((float) (position.x - cameraPosition.x), (float) (position.y - cameraPosition.y), (float) (position.z - cameraPosition.z), 1f);
-			viewProjection.transform(clip);
-			if (clip.w <= 0f) {
+			if (!project(viewProjection, position, cameraPosition)) {
 				continue;
 			}
-			int radius = item.type == EntityDotType.BOSS ? BOSS_DOT_RADIUS : DOT_RADIUS;
-			int x = rect.x() + Math.round((clip.x / clip.w + 1f) * 0.5f * rect.size());
-			int y = rect.y() + Math.round((1f - clip.y / clip.w) * 0.5f * rect.size());
-			if (x - radius >= rect.x() && x + radius <= rect.x() + rect.size() && y - radius >= rect.y() && y + radius <= rect.bottom()) {
-				dots.add(new Dot(item.entity, item.type, x, y));
+			float exactX = guiX(rect);
+			float exactY = guiY(rect);
+			int x = Math.round(exactX);
+			int y = Math.round(exactY);
+			int radius = radius(item.type);
+			if (x - radius < rect.x() || x + radius > rect.x() + rect.size() || y - radius < rect.y() || y + radius > rect.bottom()) {
+				continue;
+			}
+			int color = OPAQUE | item.type.color(config);
+			if (item.type == EntityDotType.ARROW) {
+				float angle = flightAngle(item.entity, viewProjection, position, cameraPosition, rect, exactX, exactY);
+				dots.add(new Dot(item.entity, item.type, x, y, angle));
+				drawBar(graphics, x, y, angle, color);
+			} else {
+				dots.add(new Dot(item.entity, item.type, x, y, 0f));
 				int outline = item.type == EntityDotType.BOSS ? BOSS_OUTLINE_COLOR : OUTLINE_COLOR;
 				graphics.fill(x - radius - 1, y - radius - 1, x + radius + 1, y + radius + 1, outline);
-				graphics.fill(x - radius, y - radius, x + radius, y + radius, OPAQUE | item.type.color(config));
+				graphics.fill(x - radius, y - radius, x + radius, y + radius, color);
 			}
 		}
+	}
+
+	private static int radius(EntityDotType type) {
+		return switch (type) {
+			case BOSS -> BOSS_DOT_RADIUS;
+			case ARROW -> BAR_HALF_LENGTH;
+			default -> DOT_RADIUS;
+		};
+	}
+
+	/** Leaves the result in {@link #clip}. Returns false for points behind the camera. */
+	private boolean project(Matrix4f viewProjection, Vec3 position, Vec3 cameraPosition) {
+		clip.set((float) (position.x - cameraPosition.x), (float) (position.y - cameraPosition.y), (float) (position.z - cameraPosition.z), 1f);
+		viewProjection.transform(clip);
+		return clip.w > 0f;
+	}
+
+	private float guiX(MapLayout.Rect rect) {
+		return rect.x() + (clip.x / clip.w + 1f) * 0.5f * rect.size();
+	}
+
+	private float guiY(MapLayout.Rect rect) {
+		return rect.y() + (1f - clip.y / clip.w) * 0.5f * rect.size();
+	}
+
+	/** The on-screen direction of flight, found by projecting a point ahead of the arrow the same way as the arrow itself. */
+	private float flightAngle(Entity entity, Matrix4f viewProjection, Vec3 position, Vec3 cameraPosition, MapLayout.Rect rect, float x, float y) {
+		Vec3 motion = entity.getDeltaMovement();
+		if (motion.lengthSqr() < MIN_MOTION_SQR || !project(viewProjection, position.add(motion.normalize().scale(FLIGHT_SAMPLE_BLOCKS)), cameraPosition)) {
+			return 0f;
+		}
+		return (float) Math.atan2(guiY(rect) - y, guiX(rect) - x);
+	}
+
+	/** The front of the bar is lighter, so that the direction of flight can be told from its back. */
+	private static void drawBar(GuiGraphicsExtractor graphics, int x, int y, float angle, int color) {
+		graphics.pose().pushMatrix();
+		graphics.pose().translate(x, y);
+		graphics.pose().rotate(angle);
+		// One unit thick has no center row, so the bar shifts by half a unit to stay centered on the entity.
+		graphics.pose().translate(0f, -0.5f);
+		graphics.fill(-BAR_HALF_LENGTH - 1, -1, BAR_HALF_LENGTH + 1, 2, OUTLINE_COLOR);
+		graphics.fill(-BAR_HALF_LENGTH, 0, BAR_HALF_LENGTH, 1, color);
+		graphics.fill(BAR_HALF_LENGTH - BAR_TIP_LENGTH, 0, BAR_HALF_LENGTH, 1, ARGB.average(color, TIP_TINT_COLOR));
+		graphics.pose().popMatrix();
 	}
 
 	/** The name of the dot nearest to a GUI position, translated by the game, or null when none is close. */
