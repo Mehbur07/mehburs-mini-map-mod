@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "id": "mehburs_minimap_test",
+  "version": "1.0.0",
+  "name": "Mehbur's Mini Map Tests",
+  "environment": "*",
+  "entrypoints": {
+    "fabric-client-gametest": ["com.mehbur.minimap.gametest.MapRenderProofGameTest"]
+  }
+}

@@ -13,10 +13,22 @@ repositories {
 	mavenCentral()
 }
 
+fabricApi {
+	configureTests {
+		createSourceSet = true
+		modId = 'mehburs_minimap_test'
+		enableGameTests = false
+		enableClientGameTests = true
+		eula = true
+	}
+}
+
 loom {
-	runs {
-		client {
-			vmArgs '-Xmx2G'
+	runs.configureEach {
+		vmArgs '-Xmx2G'
+		// Choose a backend for any run with: gradlew runClientGameTest -Pgraphics_backend=vulkan
+		if (project.hasProperty('graphics_backend')) {
+			programArgs '--graphicsBackend', project.property('graphics_backend')
 		}
 	}
 }
@@ -50,6 +62,7 @@ java {
 tasks.withType(JavaCompile).configureEach {
 	options.encoding = 'UTF-8'
 	options.release = 25
+	options.compilerArgs << '-Xlint:deprecation'
 }
 
 test {
