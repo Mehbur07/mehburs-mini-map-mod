@@ -36,11 +36,12 @@ public final class MinimapConfig {
 	@JsonAdapter(HexColorAdapter.class) public int itemColor = 0xFFFF33;
 	@JsonAdapter(HexColorAdapter.class) public int enderPearlColor = 0xBC13FE;
 
-	public int mapSize = 128;
+	public int mapSize = 80;
 	public Corner corner = Corner.TOP_LEFT;
 	public float zoom = 1f;
 	public boolean northLocked = false;
 	public boolean simplifyDistantTextures = true;
+	public boolean autoCaveMode = true;
 
 	public boolean showMobs = true;
 	public boolean showPlayers = true;

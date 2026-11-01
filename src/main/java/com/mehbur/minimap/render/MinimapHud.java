@@ -2,7 +2,9 @@ package com.mehbur.minimap.render;
 
 import com.mehbur.minimap.MehbursMiniMapClient;
 import com.mehbur.minimap.config.MinimapConfig;
+import com.mehbur.minimap.render.terrain.CaveDetector;
 import com.mehbur.minimap.render.terrain.ChunkMesh;
+import com.mehbur.minimap.render.terrain.MapLayerTracker;
 import com.mehbur.minimap.render.terrain.TerrainCache;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.textures.FilterMode;
@@ -15,6 +17,7 @@ import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry;
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.renderer.texture.TextureAtlas;
 import net.minecraft.data.AtlasIds;
 import net.minecraft.resources.Identifier;
@@ -41,6 +44,8 @@ public final class MinimapHud implements AutoCloseable {
 
 	private final TerrainCache terrain = new TerrainCache();
 	private final List<ChunkMesh> visibleMeshes = new ArrayList<>();
+	private final MapLayerTracker layerTracker = new MapLayerTracker();
+	private ClientLevel lastLevel;
 	private MapRenderTarget target;
 	private long lastFrameMillis;
 	private Vec3 lastPosition = Vec3.ZERO;
@@ -64,10 +69,21 @@ public final class MinimapHud implements AutoCloseable {
 	private void tick(Minecraft minecraft) {
 		if (minecraft.level == null || minecraft.player == null) {
 			terrain.clear();
+			lastLevel = null;
 			return;
 		}
 		int radiusChunks = (int) Math.ceil(viewReach(minecraft, minecraft.player.getY()) / 16.0) + 1;
-		terrain.tick(minecraft.level, blockAtlas(minecraft), minecraft.player.getX(), minecraft.player.getZ(), radiusChunks);
+		terrain.tick(minecraft.level, blockAtlas(minecraft), minecraft.player.getX(), minecraft.player.getZ(), radiusChunks, updateLayer(minecraft));
+	}
+
+	private int updateLayer(Minecraft minecraft) {
+		boolean underground = MehbursMiniMapClient.config().autoCaveMode && CaveDetector.isUnderground(minecraft.level, minecraft.player);
+		int eyeBlockY = CaveDetector.eyeBlockY(minecraft.player);
+		if (minecraft.level != lastLevel) {
+			lastLevel = minecraft.level;
+			return layerTracker.reset(underground, eyeBlockY);
+		}
+		return layerTracker.update(underground, eyeBlockY);
 	}
 
 	private static double viewReach(Minecraft minecraft, double playerY) {
@@ -145,10 +161,9 @@ public final class MinimapHud implements AutoCloseable {
 	}
 
 	private static void drawPlayerDot(GuiGraphicsExtractor graphics, int centerX, int centerY, int color) {
-		graphics.fill(centerX - 2, centerY - 3, centerX + 3, centerY + 4, DOT_OUTLINE_COLOR);
-		graphics.fill(centerX - 3, centerY - 2, centerX + 4, centerY + 3, DOT_OUTLINE_COLOR);
-		graphics.fill(centerX - 1, centerY - 2, centerX + 2, centerY + 3, color);
-		graphics.fill(centerX - 2, centerY - 1, centerX + 3, centerY + 2, color);
+		graphics.fill(centerX - 1, centerY - 2, centerX + 2, centerY + 3, DOT_OUTLINE_COLOR);
+		graphics.fill(centerX - 2, centerY - 1, centerX + 3, centerY + 2, DOT_OUTLINE_COLOR);
+		graphics.fill(centerX - 1, centerY - 1, centerX + 2, centerY + 2, color);
 	}
 
 	@Override

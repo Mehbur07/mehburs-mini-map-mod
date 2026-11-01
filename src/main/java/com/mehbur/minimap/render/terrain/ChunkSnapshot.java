@@ -22,7 +22,7 @@ public final class ChunkSnapshot {
 	public final Column[] columns = new Column[SIZE * SIZE];
 
 	/**
-	 * @param top       sprite of the floor's top face, or null when there is no floor
+	 * @param top       sprite of the floor's top face, or null when there is no floor or the map's layer cuts through it
 	 * @param topRgb    tint of the top face
 	 * @param sides     side sprite per block going down from the floor; entries are null where nothing solid is exposed
 	 * @param sideRgbs  tint per entry of {@code sides}

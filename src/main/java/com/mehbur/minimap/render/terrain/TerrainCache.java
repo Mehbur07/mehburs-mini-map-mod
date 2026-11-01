@@ -22,7 +22,7 @@ import net.minecraft.world.level.chunk.status.ChunkStatus;
  * the client thread, meshing runs on one worker thread, and uploads are budgeted on the render thread.
  */
 public final class TerrainCache implements AutoCloseable {
-	private static final int SNAPSHOTS_PER_TICK = 4;
+	private static final int SNAPSHOTS_PER_TICK = 8;
 	private static final int UPLOADS_PER_FRAME = 16;
 	private static final long DIRTY_DELAY_MILLIS = 100;
 	/** Meshes outside the view are dropped above this size. Visible meshes always stay. */
@@ -58,6 +58,7 @@ public final class TerrainCache implements AutoCloseable {
 	private int centerChunkX;
 	private int centerChunkZ;
 	private int viewRadiusChunks;
+	private int layerY = MapLayerTracker.SURFACE;
 
 	public TerrainCache() {
 		instance = this;
@@ -85,7 +86,7 @@ public final class TerrainCache implements AutoCloseable {
 	}
 
 	/** Client thread: starts work on the chunks nearest the player that need it. */
-	public void tick(ClientLevel level, TextureAtlas atlas, double playerX, double playerZ, int viewRadiusChunks) {
+	public void tick(ClientLevel level, TextureAtlas atlas, double playerX, double playerZ, int viewRadiusChunks, int layerY) {
 		if (spriteStamp(atlas) != atlasStamp) {
 			clear();
 			snapshotter.clearSpriteCache();
@@ -94,6 +95,10 @@ public final class TerrainCache implements AutoCloseable {
 		if (this.level != level) {
 			clear();
 			this.level = level;
+		}
+		if (this.layerY != layerY) {
+			this.layerY = layerY;
+			markAllDirty();
 		}
 		this.atlas = atlas;
 		this.viewRadiusChunks = viewRadiusChunks;
@@ -134,7 +139,7 @@ public final class TerrainCache implements AutoCloseable {
 		}
 		entry.inFlight = true;
 		entry.dirty = false;
-		ChunkSnapshot snapshot = snapshotter.take(level, chunk, atlas);
+		ChunkSnapshot snapshot = snapshotter.take(level, chunk, atlas, layerY);
 		int submittedGeneration = generation;
 		worker.execute(() -> mesh(snapshot, submittedGeneration));
 		return true;
@@ -225,6 +230,19 @@ public final class TerrainCache implements AutoCloseable {
 
 	public static long loadedBytes() {
 		return instance == null ? 0L : instance.totalBytes;
+	}
+
+	/** The height the map currently cuts at, or {@link MapLayerTracker#SURFACE}. */
+	public static int currentLayerY() {
+		return instance == null ? MapLayerTracker.SURFACE : instance.layerY;
+	}
+
+	/** Old meshes stay on screen until their replacements arrive, so the map never goes blank during a switch. */
+	private void markAllDirty() {
+		for (Entry entry : entries.values()) {
+			entry.dirty = true;
+			entry.dirtySinceMillis = 0L;
+		}
 	}
 
 	private void markColumnDirty(int worldX, int worldZ) {

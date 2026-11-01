@@ -42,13 +42,15 @@ public final class ChunkMesher {
 	}
 
 	private void addColumn(ChunkSnapshot snapshot, ChunkSnapshot.Column column, int x, int z) {
+		int y = snapshot.floorHeights[ChunkSnapshot.gridIndex(x, z)];
 		if (column.top() != null) {
-			int y = snapshot.floorHeights[ChunkSnapshot.gridIndex(x, z)];
 			float x1 = x + 1;
 			float z1 = z + 1;
 			float top = y + 1;
 			// Corners are counter-clockwise seen from outside, starting at the sprite's top-left.
 			opaque = quad(opaque, column.top(), color(column.topRgb(), TOP_SHADE), x, top, z, x, top, z1, x1, top, z1, x1, top, z);
+		}
+		if (column.sides().length > 0) {
 			addFloorSides(snapshot, column, x, z, y);
 		}
 		if (column.under() != null) {

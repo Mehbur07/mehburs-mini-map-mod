@@ -1,6 +1,8 @@
 package com.mehbur.minimap.gametest;
 
 import com.mehbur.minimap.MehbursMiniMapClient;
+import com.mehbur.minimap.render.terrain.MapLayerTracker;
+import com.mehbur.minimap.render.terrain.TerrainCache;
 import com.mojang.datafixers.util.Pair;
 import net.fabricmc.fabric.api.client.gametest.v1.FabricClientGameTest;
 import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
@@ -11,6 +13,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Holder;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.level.LightLayer;
 import net.minecraft.world.level.biome.Biome;
 import net.minecraft.world.level.biome.Biomes;
 
@@ -19,12 +22,130 @@ public class MapTerrainGameTest implements FabricClientGameTest {
 	private static final int RENDER_DISTANCE = 8;
 	private static final int MESH_SETTLE_TICKS = 80;
 	private static final int BIOME_SEARCH_RADIUS = 6400;
+	private static final int DEEP_WATER_Y = 40;
 
 	@Override
 	public void runTest(ClientGameTestContext context) {
 		context.runOnClient(client -> client.options.renderDistance().set(RENDER_DISTANCE));
 		testLandmarks(context);
+		testBuiltCave(context);
 		testRealTerrain(context);
+	}
+
+	/** A cave dug at known positions, plus the places that must keep showing the surface. */
+	private static void testBuiltCave(ClientGameTestContext context) {
+		try (TestSingleplayerContext world = context.worldBuilder().create()) {
+			TestServerContext server = world.getServer();
+			server.runCommand("time set noon");
+			server.runCommand("gamemode creative @a");
+			lookAt(context, server, "tp @a 0.5 -40 0.5 180 0");
+			assertLayer(context, MapLayerTracker.SURFACE, "open air above the flat world");
+
+			server.runCommand("fill -20 -60 -20 20 -45 20 stone");
+			server.runCommand("fill -2 -56 -2 2 -55 2 air"); // room around the player, floor at -57
+			server.runCommand("fill 0 -57 -18 1 -57 -3 gold_block"); // north corridor
+			server.runCommand("fill 0 -56 -18 1 -55 -3 air");
+			server.runCommand("fill -18 -57 0 -3 -57 1 red_wool"); // west corridor
+			server.runCommand("fill -18 -56 0 -3 -55 1 air");
+			server.runCommand("fill 3 -56 0 12 -55 1 air"); // east corridor, flooded
+			server.runCommand("fill 3 -56 0 12 -56 1 water");
+			server.runCommand("fill 0 -60 3 1 -55 12 air"); // south pit, floor five blocks lower
+			server.runCommand("fill 0 -61 3 1 -61 12 emerald_block");
+			server.runCommand("fill -12 -50 -12 12 -48 12 air"); // chamber above the player, which the map must hide
+			server.runCommand("fill -12 -51 -12 12 -51 12 diamond_block");
+
+			lookAt(context, server, "tp @a 0.5 -56 0.5 180 0");
+			assertLayer(context, -55, "built cave");
+			context.takeScreenshot("cave-built-facing-north");
+
+			server.runCommand("execute as @a at @s run tp @s ~ ~ ~ 90 0");
+			context.waitTicks(10);
+			context.takeScreenshot("cave-built-facing-west");
+
+			server.runCommand("fill 0 -56 -8 1 -55 -8 sea_lantern");
+			context.waitTicks(20);
+			context.takeScreenshot("cave-built-corridor-walled");
+
+			// One block of roof over a room is a building, not a cave.
+			server.runCommand("fill 30 -60 30 36 -57 36 oak_planks hollow");
+			lookAt(context, server, "tp @a 33.5 -60 33.5 180 0");
+			assertLayer(context, MapLayerTracker.SURFACE, "closed house");
+
+			lookAt(context, server, "tp @a 0.5 -40 0.5 180 0");
+			assertLayer(context, MapLayerTracker.SURFACE, "back above the cave");
+			context.takeScreenshot("cave-built-left");
+		}
+	}
+
+	private static void testDimensions(ClientGameTestContext context, TestServerContext server) {
+		lookAt(context, server, "execute in minecraft:the_nether run tp @a 0.5 70 0.5 180 0");
+		int netherLayer = context.computeOnClient(client -> TerrainCache.currentLayerY());
+		if (netherLayer == MapLayerTracker.SURFACE) {
+			throw new AssertionError("Map shows the surface inside the Nether");
+		}
+		context.takeScreenshot("nether-inside");
+
+		lookAt(context, server, "execute in minecraft:the_nether run tp @a 0.5 135 0.5 180 0");
+		assertLayer(context, MapLayerTracker.SURFACE, "above the Nether roof");
+		context.takeScreenshot("nether-roof");
+
+		lookAt(context, server, "execute in minecraft:the_end run tp @a 0.5 75 0.5 180 0");
+		assertLayer(context, MapLayerTracker.SURFACE, "the End");
+		context.takeScreenshot("end-island");
+
+		lookAt(context, server, "execute in minecraft:overworld run tp @a 0.5 200 0.5 180 0");
+	}
+
+	/** The real caves the game generates, found by searching for a dark pocket under the spawn area. */
+	private static void visitRealCave(ClientGameTestContext context, TestServerContext server) {
+		BlockPos found = server.computeOnServer(minecraft -> findCave(minecraft.overworld()));
+		if (found == null) {
+			throw new AssertionError("No cave found to test in");
+		}
+		lookAt(context, server, "tp @a " + (found.getX() + 0.5) + " " + found.getY() + " " + (found.getZ() + 0.5) + " 180 0");
+		assertLayer(context, found.getY() + 1, "real cave");
+		context.takeScreenshot("cave-real");
+	}
+
+	private static BlockPos findCave(ServerLevel level) {
+		BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos();
+		for (int x = -128; x <= 128; x += 16) {
+			for (int z = -128; z <= 128; z += 16) {
+				for (int y = 20; y >= -40; y--) {
+					boolean standable = !level.getBlockState(pos.set(x, y - 1, z)).isAir()
+						&& level.getBlockState(pos.set(x, y, z)).isAir()
+						&& level.getBlockState(pos.set(x, y + 1, z)).isAir();
+					if (standable && level.getBrightness(LightLayer.SKY, pos) == 0) {
+						return pos.set(x, y, z).immutable();
+					}
+				}
+			}
+		}
+		return null;
+	}
+
+	/** Swimming down in an ocean has nothing overhead but water, so the map keeps showing the ocean. */
+	private static void visitDeepWater(ClientGameTestContext context, TestServerContext server) {
+		BlockPos found = server.computeOnServer(minecraft -> {
+			ServerLevel level = minecraft.overworld();
+			Pair<BlockPos, Holder<Biome>> result = level.findClosestBiome3d(
+				holder -> holder.is(Biomes.DEEP_OCEAN), BlockPos.ZERO, BIOME_SEARCH_RADIUS, 32, 64);
+			return result == null ? null : result.getFirst();
+		});
+		if (found == null) {
+			MehbursMiniMapClient.LOGGER.warn("[minimap-test] deep ocean not found");
+			return;
+		}
+		lookAt(context, server, "tp @a " + found.getX() + " " + DEEP_WATER_Y + " " + found.getZ() + " 180 0");
+		assertLayer(context, MapLayerTracker.SURFACE, "under deep water");
+		context.takeScreenshot("ocean-under-water");
+	}
+
+	private static void assertLayer(ClientGameTestContext context, int expected, String where) {
+		int actual = context.computeOnClient(client -> TerrainCache.currentLayerY());
+		if (actual != expected) {
+			throw new AssertionError("Map layer in " + where + ": expected " + expected + ", was " + actual);
+		}
 	}
 
 	/** Flat world with a block pattern at known compass positions, to check rotation and live updates. */
@@ -67,6 +188,10 @@ public class MapTerrainGameTest implements FabricClientGameTest {
 			TestServerContext server = world.getServer();
 			server.runCommand("time set noon");
 			server.runCommand("gamerule spawn_mobs false");
+
+			testDimensions(context, server);
+			visitRealCave(context, server);
+			visitDeepWater(context, server);
 
 			visitBiome(context, server, Biomes.JAGGED_PEAKS, "peaks");
 			visitBiome(context, server, Biomes.SNOWY_PLAINS, "snow");

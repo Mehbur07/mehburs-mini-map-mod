@@ -30,6 +30,8 @@ import net.minecraft.world.level.levelgen.Heightmap;
 final class ChunkSnapshotter {
 	private static final int MAX_WATER_DEPTH = 24;
 	private static final int MAX_SIDE_DEPTH = 32;
+	/** Below the cut, floors deeper than this stay dark. Reaches the Nether's lava sea from most of its caves. */
+	private static final int MAX_LAYER_DEPTH = 64;
 	private static final int WHITE = 0xFFFFFF;
 
 	private record BlockFaces(FaceSprite top, FaceSprite side) {
@@ -43,7 +45,8 @@ final class ChunkSnapshotter {
 		facesByState.clear();
 	}
 
-	ChunkSnapshot take(ClientLevel level, LevelChunk chunk, TextureAtlas atlas) {
+	/** @param layerY the height to cut the world at, or {@link MapLayerTracker#SURFACE} to look from the sky */
+	ChunkSnapshot take(ClientLevel level, LevelChunk chunk, TextureAtlas atlas, int layerY) {
 		int chunkX = chunk.getPos().x();
 		int chunkZ = chunk.getPos().z();
 		ChunkSnapshot snapshot = new ChunkSnapshot(chunkX, chunkZ);
@@ -58,13 +61,13 @@ final class ChunkSnapshotter {
 					snapshot.surfaceHeights[index] = ChunkSnapshot.UNKNOWN;
 					snapshot.groundHeights[index] = ChunkSnapshot.UNKNOWN;
 				} else {
-					readHeights(level, source, (chunkX << 4) + x, (chunkZ << 4) + z, snapshot, index);
+					readHeights(level, source, (chunkX << 4) + x, (chunkZ << 4) + z, layerY, snapshot, index);
 				}
 			}
 		}
 		for (int z = 0; z < ChunkSnapshot.SIZE; z++) {
 			for (int x = 0; x < ChunkSnapshot.SIZE; x++) {
-				snapshot.columns[ChunkSnapshot.columnIndex(x, z)] = readColumn(level, chunk, atlas, snapshot, x, z);
+				snapshot.columns[ChunkSnapshot.columnIndex(x, z)] = readColumn(level, chunk, atlas, layerY, snapshot, x, z);
 			}
 		}
 		return snapshot;
@@ -88,8 +91,10 @@ final class ChunkSnapshotter {
 		return cellX + cellZ * 3;
 	}
 
-	private void readHeights(ClientLevel level, LevelChunk chunk, int worldX, int worldZ, ChunkSnapshot snapshot, int index) {
-		int surface = chunk.getHeight(Heightmap.Types.MOTION_BLOCKING, worldX & 15, worldZ & 15);
+	private void readHeights(ClientLevel level, LevelChunk chunk, int worldX, int worldZ, int layerY, ChunkSnapshot snapshot, int index) {
+		int surface = layerY == MapLayerTracker.SURFACE
+			? chunk.getHeight(Heightmap.Types.MOTION_BLOCKING, worldX & 15, worldZ & 15)
+			: findHighestBelowCut(level, chunk, worldX, worldZ, layerY);
 		if (surface < level.getMinY()) {
 			snapshot.floorHeights[index] = ChunkSnapshot.NO_BLOCK;
 			snapshot.surfaceHeights[index] = ChunkSnapshot.NO_BLOCK;
@@ -103,6 +108,17 @@ final class ChunkSnapshotter {
 		snapshot.groundHeights[index] = ground == ChunkSnapshot.NO_BLOCK ? floor : ground;
 	}
 
+	/** What the heightmap gives on the surface, for a world that ends at the cut. Below the world's bottom when nothing is in reach. */
+	private int findHighestBelowCut(ClientLevel level, LevelChunk chunk, int worldX, int worldZ, int layerY) {
+		int deepest = Math.max(level.getMinY(), layerY - MAX_LAYER_DEPTH);
+		for (int y = layerY; y >= deepest; y--) {
+			if (Heightmap.Types.MOTION_BLOCKING.isOpaque().test(chunk.getBlockState(pos.set(worldX, y, worldZ)))) {
+				return y;
+			}
+		}
+		return level.getMinY() - 1;
+	}
+
 	/** Walks down through water. Returns {@link ChunkSnapshot#NO_BLOCK} when the bottom is too deep to show. */
 	private int findFloor(ClientLevel level, LevelChunk chunk, int worldX, int worldZ, int surface) {
 		int deepest = Math.max(level.getMinY(), surface - MAX_WATER_DEPTH);
@@ -114,7 +130,7 @@ final class ChunkSnapshotter {
 		return ChunkSnapshot.NO_BLOCK;
 	}
 
-	private ChunkSnapshot.Column readColumn(ClientLevel level, LevelChunk chunk, TextureAtlas atlas, ChunkSnapshot snapshot, int x, int z) {
+	private ChunkSnapshot.Column readColumn(ClientLevel level, LevelChunk chunk, TextureAtlas atlas, int layerY, ChunkSnapshot snapshot, int x, int z) {
 		int index = ChunkSnapshot.gridIndex(x, z);
 		int surface = snapshot.surfaceHeights[index];
 		if (surface == ChunkSnapshot.NO_BLOCK) {
@@ -136,8 +152,11 @@ final class ChunkSnapshotter {
 			BlockState above = chunk.getBlockState(pos.set(worldX, floor + 1, worldZ));
 			// A single snow layer does not count for the heightmap, but it is what you see from above.
 			BlockState topState = above.is(Blocks.SNOW) ? above : floorState;
-			top = faces(topState, atlas).top();
-			topRgb = tint(level, topState, top, pos.set(worldX, floor, worldZ));
+			// Rock cut by the layer stays open: a cap would hide the tunnel behind it from the tilted camera.
+			if (floor != layerY || !CaveDetector.isRock(floorState)) {
+				top = faces(topState, atlas).top();
+				topRgb = tint(level, topState, top, pos.set(worldX, floor, worldZ));
+			}
 
 			int depth = sideDepth(snapshot, x, z, floor);
 			sides = new FaceSprite[depth];

@@ -91,6 +91,25 @@ class ChunkMesherTest {
 	}
 
 	@Test
+	void rockCutByTheLayerOnlyGetsWalls() {
+		ChunkSnapshot snapshot = singleColumn(HEIGHT, HEIGHT - 2, 2);
+		FaceSprite[] sides = {SPRITE, SPRITE};
+		snapshot.columns[ChunkSnapshot.columnIndex(5, 5)] =
+			new ChunkSnapshot.Column(null, WHITE, sides, new int[2], ChunkSnapshot.NO_BLOCK, null, WHITE, null, WHITE, 0);
+
+		assertEquals(4 * 2, mesher.build(snapshot).opaqueQuads());
+	}
+
+	@Test
+	void solidRockBelowTheLayerBuildsNothing() {
+		ChunkSnapshot snapshot = singleColumn(HEIGHT, HEIGHT, 0);
+		snapshot.columns[ChunkSnapshot.columnIndex(5, 5)] =
+			new ChunkSnapshot.Column(null, WHITE, new FaceSprite[0], new int[0], ChunkSnapshot.NO_BLOCK, null, WHITE, null, WHITE, 0);
+
+		assertEquals(0, mesher.build(snapshot).opaqueQuads());
+	}
+
+	@Test
 	void topFaceIsAboveTheBlockInWorldCoordinates() {
 		ByteBuffer vertices = mesher.build(singleColumn(HEIGHT, HEIGHT, 0)).opaque();
 
