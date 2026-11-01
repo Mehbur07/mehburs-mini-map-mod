@@ -1,0 +1,90 @@
+plugins {
+	id 'net.fabricmc.fabric-loom' version "${loom_version}"
+}
+
+version = project.mod_version
+group = project.maven_group
+
+base {
+	archivesName = project.archives_base_name
+}
+
+repositories {
+	mavenCentral()
+}
+
+loom {
+	runs {
+		client {
+			vmArgs '-Xmx2G'
+		}
+	}
+}
+
+dependencies {
+	minecraft "com.mojang:minecraft:${project.minecraft_version}"
+	implementation "net.fabricmc:fabric-loader:${project.loader_version}"
+	implementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
+
+	testImplementation platform('org.junit:junit-bom:5.13.4')
+	testImplementation 'org.junit.jupiter:junit-jupiter'
+	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+processResources {
+	def modVersion = project.version
+	def minecraftVersion = project.minecraft_version
+	inputs.property 'version', modVersion
+	inputs.property 'minecraft_version', minecraftVersion
+
+	filesMatching('fabric.mod.json') {
+		expand 'version': modVersion, 'minecraft_version': minecraftVersion
+	}
+}
+
+java {
+	sourceCompatibility = JavaVersion.VERSION_25
+	targetCompatibility = JavaVersion.VERSION_25
+}
+
+tasks.withType(JavaCompile).configureEach {
+	options.encoding = 'UTF-8'
+	options.release = 25
+}
+
+test {
+	useJUnitPlatform()
+}
+
+// The test instance path is machine-specific, so it lives in the git-ignored local.properties.
+def localProperties = new Properties()
+def localPropertiesFile = file('local.properties')
+if (localPropertiesFile.exists()) {
+	localPropertiesFile.withInputStream { localProperties.load(it) }
+}
+
+tasks.register('deployToTestInstance') {
+	group = 'mehburs minimap'
+	description = 'Replaces the mod jar in the test instance named by test_instance_dir in local.properties.'
+	dependsOn tasks.named('jar')
+
+	def instanceDir = localProperties.getProperty('test_instance_dir')
+	def builtJar = tasks.named('jar').flatMap { it.archiveFile }
+	def jarPrefix = "${project.archives_base_name}-"
+
+	doLast {
+		if (instanceDir == null) {
+			throw new GradleException('Set test_instance_dir in local.properties (see local.properties.example).')
+		}
+		def modsDir = new File(instanceDir, 'mods')
+		if (!modsDir.isDirectory()) {
+			throw new GradleException("Test instance mods folder not found: ${modsDir}")
+		}
+		modsDir.listFiles()
+			.findAll { it.name.startsWith(jarPrefix) && it.name.endsWith('.jar') }
+			.each { it.delete() }
+		def source = builtJar.get().asFile
+		java.nio.file.Files.copy(source.toPath(), new File(modsDir, source.name).toPath())
+		logger.lifecycle("Deployed ${source.name} to ${modsDir}")
+	}
+}

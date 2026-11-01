@@ -1,0 +1,31 @@
+# Gradle
+.gradle/
+build/
+out/
+bin/
+run/
+logs/
+
+# Machine-specific settings and secrets
+local.properties
+*.env
+.env*
+*.pem
+*.key
+*.p12
+*.jks
+
+# IDE
+.idea/
+*.iml
+.vscode/
+.classpath
+.project
+.settings/
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Claude Code
+.claude/

@@ -1,0 +1,2 @@
+# Copy to local.properties. Use forward slashes.
+test_instance_dir=C:/path/to/instance

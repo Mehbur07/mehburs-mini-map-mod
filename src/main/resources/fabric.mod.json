@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "id": "mehburs_minimap",
+  "version": "${version}",
+  "name": "Mehbur's Mini Map",
+  "description": "A client-side 3D minimap with color-coded entity dots, an animated full-screen map and death markers.",
+  "authors": ["Mehbur07"],
+  "license": "All-Rights-Reserved",
+  "environment": "client",
+  "entrypoints": {
+    "client": ["com.mehbur.minimap.MehbursMiniMapClient"]
+  },
+  "depends": {
+    "fabricloader": ">=0.19.3",
+    "minecraft": "~${minecraft_version}",
+    "java": ">=25",
+    "fabric-api": "*"
+  }
+}
