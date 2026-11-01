@@ -2,6 +2,7 @@ package com.mehbur.minimap.render;
 
 import com.mehbur.minimap.MehbursMiniMapClient;
 import com.mehbur.minimap.config.MinimapConfig;
+import com.mehbur.minimap.entity.EntityRadar;
 import com.mehbur.minimap.input.BigMapScreen;
 import com.mehbur.minimap.render.terrain.CaveDetector;
 import com.mehbur.minimap.render.terrain.ChunkMesh;
@@ -54,6 +55,7 @@ public final class MinimapHud implements AutoCloseable {
 	private final MapAnimation animation = new MapAnimation();
 	private ClientLevel lastLevel;
 	private MapRenderTarget target;
+	private Matrix4f lastViewProjection;
 	private long lastFrameMillis;
 	private Vec3 lastPosition = Vec3.ZERO;
 	private float lastYaw;
@@ -77,13 +79,16 @@ public final class MinimapHud implements AutoCloseable {
 	private void tick(Minecraft minecraft) {
 		if (minecraft.level == null || minecraft.player == null) {
 			terrain.clear();
+			EntityRadar.INSTANCE.clear();
 			lastLevel = null;
 			return;
 		}
 		MinimapConfig config = MehbursMiniMapClient.config();
 		float widestZoom = animation.isClosed() ? config.zoom : Math.min(config.zoom, config.bigMapZoom);
 		int radiusChunks = (int) Math.ceil(viewReach(minecraft, minecraft.player.getY(), widestZoom) / 16.0) + 1;
-		terrain.tick(minecraft.level, blockAtlas(minecraft), minecraft.player.getX(), minecraft.player.getZ(), radiusChunks, updateLayer(minecraft));
+		int layerY = updateLayer(minecraft);
+		terrain.tick(minecraft.level, blockAtlas(minecraft), minecraft.player.getX(), minecraft.player.getZ(), radiusChunks, layerY);
+		EntityRadar.INSTANCE.tick(minecraft.level, minecraft.player, config, layerY);
 	}
 
 	private int updateLayer(Minecraft minecraft) {
@@ -138,6 +143,7 @@ public final class MinimapHud implements AutoCloseable {
 		graphics.blit(target.colorView(), RenderSystem.getSamplerCache().getClampToEdge(filter),
 			rect.x(), rect.y(), rect.x() + rect.size(), rect.bottom(), 0f, 1f, 1f, 0f);
 		drawFrame(graphics, rect);
+		EntityRadar.INSTANCE.draw(graphics, config, lastViewProjection, rect, lastPosition, partialTick);
 		drawPlayerDot(graphics, rect.centerX(), rect.centerY(), OPAQUE | config.playerDotColor);
 
 		int lineY = rect.bottom() + INFO_GAP;
@@ -174,10 +180,10 @@ public final class MinimapHud implements AutoCloseable {
 		terrain.collectVisible(position.x, position.z, viewReach(minecraft, position.y, zoom), visibleMeshes);
 
 		boolean zZeroToOne = RenderSystem.getDevice().getDeviceInfo().isZZeroToOne();
-		Matrix4f viewProjection = MapCamera.viewProjection(zoom, yaw, config.northLocked, zZeroToOne);
+		lastViewProjection = MapCamera.viewProjection(zoom, yaw, config.northLocked, zZeroToOne);
 		float pixelsPerBlock = pixels / (2f * MapCamera.radiusBlocks(zoom));
 		float textureLod = config.simplifyDistantTextures ? MapCamera.textureLod(pixelsPerBlock) : 0f;
-		target.render(pixels, viewProjection, textureLod, blockAtlas(minecraft), visibleMeshes, position.x, position.y, position.z);
+		target.render(pixels, lastViewProjection, textureLod, blockAtlas(minecraft), visibleMeshes, position.x, position.y, position.z);
 	}
 
 	private static String coordinates(Vec3 position) {

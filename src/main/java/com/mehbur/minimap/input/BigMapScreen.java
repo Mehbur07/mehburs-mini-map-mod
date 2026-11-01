@@ -2,6 +2,7 @@ package com.mehbur.minimap.input;
 
 import com.mehbur.minimap.MehbursMiniMapClient;
 import com.mehbur.minimap.config.MinimapConfig;
+import com.mehbur.minimap.entity.EntityRadar;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.input.KeyEvent;
@@ -28,6 +29,15 @@ public final class BigMapScreen extends Screen {
 	@Override
 	public void extractBackground(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
 		// The world and the map must stay visible, so no blur or dimming.
+	}
+
+	@Override
+	public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
+		super.extractRenderState(graphics, mouseX, mouseY, partialTick);
+		Component name = EntityRadar.INSTANCE.nameAt(mouseX, mouseY);
+		if (name != null) {
+			graphics.setTooltipForNextFrame(font, name, mouseX, mouseY);
+		}
 	}
 
 	@Override

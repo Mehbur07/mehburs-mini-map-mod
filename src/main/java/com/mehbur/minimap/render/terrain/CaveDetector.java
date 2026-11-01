@@ -42,12 +42,17 @@ public final class CaveDetector {
 		return Heightmap.Types.MOTION_BLOCKING_NO_LEAVES.isOpaque().test(state) && state.getFluidState().isEmpty();
 	}
 
-	private static boolean hasRoof(ClientLevel level, BlockPos eye) {
+	/** Whether enough rock lies between this position and the open sky to call it underground. */
+	public static boolean hasRoof(ClientLevel level, BlockPos from) {
 		// The heightmap stores the Y above the highest block.
-		int top = level.getHeight(Heightmap.Types.MOTION_BLOCKING, eye.getX(), eye.getZ()) - 1;
-		BlockPos.MutableBlockPos pos = eye.mutable();
+		return hasRoof(level, from, level.getHeight(Heightmap.Types.MOTION_BLOCKING, from.getX(), from.getZ()) - 1);
+	}
+
+	/** Whether enough rock lies between this position and the given height to count as a roof. */
+	public static boolean hasRoof(ClientLevel level, BlockPos from, int top) {
+		BlockPos.MutableBlockPos pos = from.mutable();
 		int found = 0;
-		for (int y = eye.getY() + 1; y <= top; y++) {
+		for (int y = from.getY() + 1; y <= top; y++) {
 			if (isRock(level.getBlockState(pos.setY(y))) && ++found == MIN_ROOF_BLOCKS) {
 				return true;
 			}
