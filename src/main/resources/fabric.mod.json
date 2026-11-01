@@ -8,7 +8,8 @@
   "license": "All-Rights-Reserved",
   "environment": "client",
   "entrypoints": {
-    "client": ["com.mehbur.minimap.MehbursMiniMapClient"]
+    "client": ["com.mehbur.minimap.MehbursMiniMapClient"],
+    "modmenu": ["com.mehbur.minimap.config.ModMenuIntegration"]
   },
   "mixins": ["mehburs_minimap.mixins.json"],
   "depends": {
@@ -16,5 +17,9 @@
     "minecraft": "~${minecraft_version}",
     "java": ">=25",
     "fabric-api": "*"
+  },
+  "suggests": {
+    "modmenu": "*",
+    "cloth-config": "*"
   }
 }
