@@ -10,6 +10,7 @@
   "entrypoints": {
     "client": ["com.mehbur.minimap.MehbursMiniMapClient"]
   },
+  "mixins": ["mehburs_minimap.mixins.json"],
   "depends": {
     "fabricloader": ">=0.19.3",
     "minecraft": "~${minecraft_version}",

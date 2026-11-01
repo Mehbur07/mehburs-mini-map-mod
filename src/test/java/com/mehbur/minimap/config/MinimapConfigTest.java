@@ -24,7 +24,7 @@ class MinimapConfigTest {
 
 		assertTrue(Files.exists(file()));
 		assertEquals(0x00FFFF, config.playerDotColor);
-		assertEquals(MinimapConfig.Corner.TOP_RIGHT, config.corner);
+		assertEquals(MinimapConfig.Corner.TOP_LEFT, config.corner);
 	}
 
 	@Test
@@ -68,7 +68,7 @@ class MinimapConfigTest {
 		assertEquals(MinimapConfig.MAX_MAP_SIZE, config.mapSize);
 		assertEquals(MinimapConfig.MIN_ZOOM, config.zoom);
 		assertEquals(0, config.animationMillis);
-		assertEquals(MinimapConfig.Corner.TOP_RIGHT, config.corner);
+		assertEquals(MinimapConfig.Corner.TOP_LEFT, config.corner);
 	}
 
 	@Test

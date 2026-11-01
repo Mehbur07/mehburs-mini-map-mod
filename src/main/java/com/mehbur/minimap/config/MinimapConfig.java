@@ -37,7 +37,7 @@ public final class MinimapConfig {
 	@JsonAdapter(HexColorAdapter.class) public int enderPearlColor = 0xBC13FE;
 
 	public int mapSize = 128;
-	public Corner corner = Corner.TOP_RIGHT;
+	public Corner corner = Corner.TOP_LEFT;
 	public float zoom = 1f;
 	public boolean northLocked = false;
 	public boolean simplifyDistantTextures = true;
@@ -95,7 +95,7 @@ public final class MinimapConfig {
 		zoom = Float.isNaN(zoom) ? 1f : Math.clamp(zoom, MIN_ZOOM, MAX_ZOOM);
 		animationMillis = Math.clamp(animationMillis, 0, MAX_ANIMATION_MILLIS);
 		if (corner == null) {
-			corner = Corner.TOP_RIGHT;
+			corner = Corner.TOP_LEFT;
 		}
 	}
 
