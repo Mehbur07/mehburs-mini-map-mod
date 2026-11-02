@@ -41,6 +41,8 @@ public final class MinimapConfigScreen {
 		category = builder.getOrCreateCategory(text("category.map"));
 		category.addEntry(entries.startIntSlider(text("map_size"), config.mapSize, MinimapConfig.MIN_MAP_SIZE, MinimapConfig.MAX_MAP_SIZE)
 			.setDefaultValue(defaults.mapSize)
+			// Cloth Config's own text is a hardcoded English "Value: 80".
+			.setTextGetter(value -> Component.literal(String.valueOf(value)))
 			.setTooltip(text("map_size.tooltip"))
 			.setSaveConsumer(value -> config.mapSize = value)
 			.build());

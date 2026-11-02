@@ -1,4 +1,6 @@
 {
+  "modmenu.summaryTranslation.mehburs_minimap": "Renkli varlık noktaları, animasyonlu büyük harita ve ölüm işaretleri olan istemci taraflı 3D mini harita.",
+  "modmenu.descriptionTranslation.mehburs_minimap": "Renkli varlık noktaları, animasyonlu büyük harita ve ölüm işaretleri olan istemci taraflı 3D mini harita.",
   "key.category.mehburs_minimap.main": "Mehbur's Mini Map",
   "key.mehburs_minimap.toggle_map": "Büyük Haritayı Aç/Kapat",
   "key.mehburs_minimap.toggle_death_line": "Ölüm Çizgisini Aç/Kapat",
@@ -59,9 +61,9 @@
   "config.mehburs_minimap.item_color": "Yerdeki Eşyalar",
   "config.mehburs_minimap.ender_pearl_color": "Ender İncileri ve Gözleri",
   "config.mehburs_minimap.death_line_enabled": "Ölüm Çizgisi",
-  "config.mehburs_minimap.death_line_enabled.tooltip": "Senden son ölüm yerine beyaz çizgi. K tuşu da bunu açıp kapatır.",
+  "config.mehburs_minimap.death_line_enabled.tooltip": "Senden son ölüm yerine beyaz çizgi. Kontroller'deki tuşu da bunu açıp kapatır.",
   "config.mehburs_minimap.death_triangle_enabled": "Ölüm Kurukafası ve Üçgeni",
-  "config.mehburs_minimap.death_triangle_enabled.tooltip": "Kapalıyken hep gizlidir. Shift+K ise yalnızca bir sonraki ölüme kadar kaldırır.",
+  "config.mehburs_minimap.death_triangle_enabled.tooltip": "Kapalıyken hep gizlidir. Kontroller'deki kaldırma tuşu ise yalnızca bir sonraki ölüme kadar kaldırır.",
   "text.cloth-config.save_and_done": "Kaydet ve Çık",
   "text.cloth-config.apply": "Değişiklikleri Uygula",
   "text.cloth-config.quit_config": "Değişiklikler Kaydedilmedi",

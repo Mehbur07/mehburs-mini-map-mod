@@ -5,7 +5,7 @@
   "name": "Mehbur's Mini Map Tests",
   "environment": "*",
   "entrypoints": {
-    "fabric-client-gametest": ["com.mehbur.minimap.gametest.MapConfigGameTest", "com.mehbur.minimap.gametest.MapDeathGameTest", "com.mehbur.minimap.gametest.MapEntityGameTest","com.mehbur.minimap.gametest.MapTerrainGameTest"],
+    "fabric-client-gametest": ["com.mehbur.minimap.gametest.MapConfigGameTest", "com.mehbur.minimap.gametest.MapDeathGameTest", "com.mehbur.minimap.gametest.MapEntityGameTest", "com.mehbur.minimap.gametest.MapScreensGameTest", "com.mehbur.minimap.gametest.MapTerrainGameTest"],
     "client": ["com.mehbur.minimap.gametest.MapBenchmark"]
   }
 }

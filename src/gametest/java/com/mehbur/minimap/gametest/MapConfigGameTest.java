@@ -126,7 +126,7 @@ public class MapConfigGameTest implements FabricClientGameTest {
 	}
 
 	@SuppressWarnings("unchecked")
-	private static <T> T field(Class<?> owner, Object instance, String name) {
+	static <T> T field(Class<?> owner, Object instance, String name) {
 		try {
 			Field field = owner.getDeclaredField(name);
 			field.setAccessible(true);
@@ -162,7 +162,7 @@ public class MapConfigGameTest implements FabricClientGameTest {
 		}
 	}
 
-	private static void restoreDefaults() {
+	static void restoreDefaults() {
 		MinimapConfig config = MehbursMiniMapClient.config();
 		MinimapConfig defaults = new MinimapConfig();
 		config.mapSize = defaults.mapSize;

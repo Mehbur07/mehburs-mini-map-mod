@@ -6,15 +6,22 @@ import com.mehbur.minimap.death.DeathPoint;
 import com.mehbur.minimap.entity.EntityDotType;
 import com.mehbur.minimap.entity.EntityRadar;
 import com.mehbur.minimap.input.MinimapKeys;
+import com.mojang.authlib.GameProfile;
+import java.nio.charset.StandardCharsets;
+import java.util.List;
+import java.util.UUID;
 import net.fabricmc.fabric.api.client.gametest.v1.FabricClientGameTest;
 import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
 import net.fabricmc.fabric.api.client.gametest.v1.context.TestDedicatedServerContext;
 import net.fabricmc.fabric.api.client.gametest.v1.context.TestServerContext;
 import net.fabricmc.fabric.api.client.gametest.v1.context.TestSingleplayerContext;
 import net.fabricmc.fabric.api.client.gametest.v1.world.TestWorldSave;
+import net.fabricmc.fabric.api.entity.FakePlayer;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.gui.screens.DeathScreen;
+import net.minecraft.client.player.RemotePlayer;
 import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.network.protocol.game.ClientboundPlayerInfoUpdatePacket;
 import org.lwjgl.glfw.GLFW;
 
 /** Dies at known positions and checks the marks. Screenshots land in build/run/clientGameTest/screenshots. */
@@ -23,6 +30,7 @@ public class MapDeathGameTest implements FabricClientGameTest {
 	private static final String OVERWORLD = "minecraft:overworld";
 	private static final String NETHER = "minecraft:the_nether";
 	private static final int GROUND = -60;
+	private static final String OTHER_PLAYER = "SecondPlayer";
 	/** Rough GUI distance of the triangle from the map's frame, which depends on its margin. */
 	private static final int EDGE_TOLERANCE = 8;
 
@@ -74,9 +82,9 @@ public class MapDeathGameTest implements FabricClientGameTest {
 		check(drawn.line(), "the line must be on by default");
 		check(drawn.mark() == DeathMarkers.Mark.SKULL, "inside the map the skull must show, not " + drawn.mark());
 
-		pressK(context);
+		pressLineKey(context);
 		boolean line = context.computeOnClient(client -> MehbursMiniMapClient.config().deathLineEnabled);
-		check(!line, "K must turn the line off");
+		check(!line, "the line key must turn the line off");
 		drawn = drawn(context);
 		check(!drawn.line() && drawn.mark() == DeathMarkers.Mark.SKULL, "the skull stays without the line, was " + drawn);
 		context.takeScreenshot("death-inside-map-no-line");
@@ -107,20 +115,20 @@ public class MapDeathGameTest implements FabricClientGameTest {
 		assertTriangleAt(context, Edge.LEFT, Edge.MIDDLE);
 		check(drawn(context).y() < 40, "a death to the north-west must show in the map's upper half, was " + drawn(context));
 
-		pressK(context);
+		pressLineKey(context);
 		drawn = drawn(context);
 		check(drawn.line() && drawn.mark() == DeathMarkers.Mark.NONE, "outside the map the line replaces the triangle, was " + drawn);
 		context.takeScreenshot("death-line-to-corner");
-		pressK(context);
+		pressLineKey(context);
 
 		context.getInput().holdKey(GLFW.GLFW_KEY_LEFT_SHIFT);
 		context.waitTicks(2);
-		context.getInput().pressKey(GLFW.GLFW_KEY_K);
+		context.getInput().pressKey(MinimapKeys.REMOVE_DEATH_MARKER);
 		context.waitTicks(2);
 		context.getInput().releaseKey(GLFW.GLFW_KEY_LEFT_SHIFT);
 		context.waitTicks(3);
-		check(context.computeOnClient(client -> DeathMarkers.INSTANCE.isMarkerRemoved()), "Shift+K must remove the marker");
-		check(!context.computeOnClient(client -> MehbursMiniMapClient.config().deathLineEnabled), "Shift+K must not touch the line");
+		check(context.computeOnClient(client -> DeathMarkers.INSTANCE.isMarkerRemoved()), "Shift and the key must remove the marker");
+		check(!context.computeOnClient(client -> MehbursMiniMapClient.config().deathLineEnabled), "Shift and the key must not touch the line");
 		check(drawn(context).mark() == DeathMarkers.Mark.NONE, "the triangle must be gone");
 		context.takeScreenshot("death-triangle-removed");
 
@@ -129,15 +137,18 @@ public class MapDeathGameTest implements FabricClientGameTest {
 
 		context.getInput().pressKey(GLFW.GLFW_KEY_M);
 		context.waitTicks(10);
-		context.getInput().pressKey(GLFW.GLFW_KEY_K);
+		context.getInput().pressKey(MinimapKeys.TOGGLE_DEATH_LINE);
 		context.waitTicks(3);
-		check(context.computeOnClient(client -> MehbursMiniMapClient.config().deathLineEnabled), "K must also work on the big map");
+		check(context.computeOnClient(client -> MehbursMiniMapClient.config().deathLineEnabled), "the line key must also work on the big map");
 		context.takeScreenshot("death-big-map");
 		context.getInput().pressKey(GLFW.GLFW_KEY_M);
 		context.waitTicks(20);
 
 		boolean sameKey = context.computeOnClient(client -> MinimapKeys.TOGGLE_DEATH_LINE.same(MinimapKeys.REMOVE_DEATH_MARKER));
-		check(sameKey, "both death keys must default to K");
+		check(sameKey, "both death keys must default to the same key");
+		int defaultKey = MinimapKeys.TOGGLE_DEATH_LINE.getDefaultKey().getValue();
+		int expectedKey = FabricLoader.getInstance().isModLoaded("iris") ? GLFW.GLFW_KEY_J : GLFW.GLFW_KEY_K;
+		check(defaultKey == expectedKey, "the death keys default to key code " + defaultKey);
 	}
 
 	private static void testNewDeathsAndDimensions(ClientGameTestContext context, TestServerContext server) {
@@ -197,6 +208,8 @@ public class MapDeathGameTest implements FabricClientGameTest {
 				assertDot(context, "cow", EntityDotType.PASSIVE);
 				assertDot(context, "zombie", EntityDotType.HOSTILE);
 				assertDot(context, "item", EntityDotType.ITEM);
+				testOtherPlayerOverNetwork(context, server);
+				testReducedDebugInfo(context, server);
 
 				server.runCommand("tp " + player + " 20 " + GROUND + " 0 180 0");
 				context.waitTicks(10);
@@ -215,6 +228,45 @@ public class MapDeathGameTest implements FabricClientGameTest {
 				check(drawn(context).mark() == DeathMarkers.Mark.SKULL, "the death on a server must show");
 			}
 		}
+	}
+
+	/** The server announces a player the way it does for anyone who joins, so the client only knows it from those packets. */
+	private static void testOtherPlayerOverNetwork(ClientGameTestContext context, TestDedicatedServerContext server) {
+		GameProfile profile = new GameProfile(UUID.nameUUIDFromBytes(OTHER_PLAYER.getBytes(StandardCharsets.UTF_8)), OTHER_PLAYER);
+		FakePlayer other = server.computeOnServer(minecraftServer -> {
+			FakePlayer player = FakePlayer.get(minecraftServer.overworld(), profile);
+			player.setPos(10.5, GROUND, 10.5);
+			minecraftServer.getPlayerList().broadcastAll(ClientboundPlayerInfoUpdatePacket.createPlayerInitializing(List.of(player)));
+			minecraftServer.overworld().addFreshEntity(player);
+			return player;
+		});
+		context.waitTicks(SETTLE_TICKS);
+		context.takeScreenshot("server-other-player");
+		check(otherPlayerDot(context) != null, "a player announced by the server has no dot");
+		server.runOnServer(minecraftServer -> other.discard());
+		context.waitTicks(SETTLE_TICKS);
+		check(otherPlayerDot(context) == null, "a player who left still has a dot");
+	}
+
+	private static String otherPlayerDot(ClientGameTestContext context) {
+		return context.computeOnClient(client -> {
+			for (EntityRadar.Dot dot : EntityRadar.INSTANCE.dots()) {
+				if (dot.type() == EntityDotType.OTHER_PLAYER && dot.entity() instanceof RemotePlayer && OTHER_PLAYER.equals(dot.entity().getName().getString())) {
+					return OTHER_PLAYER;
+				}
+			}
+			return null;
+		});
+	}
+
+	/** Compare server-debug-hidden with server-dots by eye: only the coordinates line may disappear. */
+	private static void testReducedDebugInfo(ClientGameTestContext context, TestDedicatedServerContext server) {
+		server.runCommand("gamerule reduced_debug_info true");
+		context.waitTicks(SETTLE_TICKS);
+		context.takeScreenshot("server-debug-hidden");
+		check(context.computeOnClient(client -> client.showOnlyReducedInfo()), "the server's rule must reach the client");
+		server.runCommand("gamerule reduced_debug_info false");
+		context.waitTicks(SETTLE_TICKS);
 	}
 
 	private static void assertDot(ClientGameTestContext context, String id, EntityDotType type) {
@@ -246,8 +298,8 @@ public class MapDeathGameTest implements FabricClientGameTest {
 		context.waitTicks(SETTLE_TICKS);
 	}
 
-	private static void pressK(ClientGameTestContext context) {
-		context.getInput().pressKey(GLFW.GLFW_KEY_K);
+	private static void pressLineKey(ClientGameTestContext context) {
+		context.getInput().pressKey(MinimapKeys.TOGGLE_DEATH_LINE);
 		context.waitTicks(3);
 	}
 

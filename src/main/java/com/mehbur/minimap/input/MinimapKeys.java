@@ -5,6 +5,7 @@ import com.mehbur.minimap.death.DeathMarkers;
 import com.mojang.blaze3d.platform.InputConstants;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keymapping.v1.KeyMappingHelper;
+import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.input.KeyEvent;
@@ -16,9 +17,12 @@ public final class MinimapKeys {
 	private static final KeyMapping.Category CATEGORY = KeyMapping.Category.register(Identifier.fromNamespaceAndPath(MehbursMiniMapClient.MOD_ID, "main"));
 
 	public static final KeyMapping TOGGLE_MAP = new KeyMapping("key.mehburs_minimap.toggle_map", InputConstants.KEY_M, CATEGORY);
-	public static final KeyMapping TOGGLE_DEATH_LINE = new KeyMapping("key.mehburs_minimap.toggle_death_line", InputConstants.KEY_K, CATEGORY);
-	/** Shares K with the line by default, because key mappings cannot include Shift. Shift then tells the two apart. */
-	public static final KeyMapping REMOVE_DEATH_MARKER = new KeyMapping("key.mehburs_minimap.remove_death_marker", InputConstants.KEY_K, CATEGORY);
+	/** Iris toggles shaders on K, so every press of a death key would also turn the player's shaders off. */
+	private static final int DEATH_KEY = FabricLoader.getInstance().isModLoaded("iris") ? InputConstants.KEY_J : InputConstants.KEY_K;
+
+	public static final KeyMapping TOGGLE_DEATH_LINE = new KeyMapping("key.mehburs_minimap.toggle_death_line", DEATH_KEY, CATEGORY);
+	/** Shares its key with the line by default, because key mappings cannot include Shift. Shift then tells the two apart. */
+	public static final KeyMapping REMOVE_DEATH_MARKER = new KeyMapping("key.mehburs_minimap.remove_death_marker", DEATH_KEY, CATEGORY);
 
 	private MinimapKeys() {
 	}

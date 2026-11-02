@@ -1,4 +1,6 @@
 {
+  "modmenu.summaryTranslation.mehburs_minimap": "A client-side 3D minimap with color-coded entity dots, an animated full-screen map and death markers.",
+  "modmenu.descriptionTranslation.mehburs_minimap": "A client-side 3D minimap with color-coded entity dots, an animated full-screen map and death markers.",
   "key.category.mehburs_minimap.main": "Mehbur's Mini Map",
   "key.mehburs_minimap.toggle_map": "Toggle Big Map",
   "key.mehburs_minimap.toggle_death_line": "Toggle Death Line",
@@ -59,9 +61,9 @@
   "config.mehburs_minimap.item_color": "Dropped Items",
   "config.mehburs_minimap.ender_pearl_color": "Ender Pearls and Eyes",
   "config.mehburs_minimap.death_line_enabled": "Death Line",
-  "config.mehburs_minimap.death_line_enabled.tooltip": "A white line from you to your last death. The K key toggles it too.",
+  "config.mehburs_minimap.death_line_enabled.tooltip": "A white line from you to your last death. Its key in Controls toggles it too.",
   "config.mehburs_minimap.death_triangle_enabled": "Death Skull and Triangle",
-  "config.mehburs_minimap.death_triangle_enabled.tooltip": "Off hides them for good. Shift+K only removes them until your next death.",
+  "config.mehburs_minimap.death_triangle_enabled.tooltip": "Off hides them for good. The remove key in Controls only removes them until your next death.",
   "text.cloth-config.save_and_done": "Save & Quit",
   "text.cloth-config.apply": "Apply Changes",
   "text.cloth-config.quit_config": "Changes Not Saved",
