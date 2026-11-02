@@ -6,6 +6,8 @@
   "key.mehburs_minimap.toggle_death_line": "Ölüm Çizgisini Aç/Kapat",
   "key.mehburs_minimap.remove_death_marker": "Ölüm Üçgenini Kaldır (Shift ile)",
   "screen.mehburs_minimap.big_map": "Büyük Harita",
+  "screen.mehburs_minimap.big_map.fps": "FPS",
+  "screen.mehburs_minimap.big_map.coordinates": "Koordinat",
   "hud.mehburs_minimap.fps": "%s FPS",
   "message.mehburs_minimap.death_line_on": "Ölüm çizgisi açık",
   "message.mehburs_minimap.death_line_off": "Ölüm çizgisi kapalı",

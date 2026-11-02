@@ -6,6 +6,8 @@
   "key.mehburs_minimap.toggle_death_line": "Toggle Death Line",
   "key.mehburs_minimap.remove_death_marker": "Remove Death Triangle (with Shift)",
   "screen.mehburs_minimap.big_map": "Big Map",
+  "screen.mehburs_minimap.big_map.fps": "FPS",
+  "screen.mehburs_minimap.big_map.coordinates": "Coordinates",
   "hud.mehburs_minimap.fps": "%s FPS",
   "message.mehburs_minimap.death_line_on": "Death line on",
   "message.mehburs_minimap.death_line_off": "Death line off",

@@ -28,6 +28,8 @@ With Iris installed the death keys default to `J`, because Iris toggles shaders 
 
 Open them through **Mods → Mehbur's Mini Map → settings icon**. Changes apply when saved.
 
+The buttons at the top left of the big map turn the FPS and coordinates lines on and off. They change the same settings as this screen, so they also apply to the small map.
+
 ## Compatibility
 
 Tested on Minecraft 26.2 with OpenGL:

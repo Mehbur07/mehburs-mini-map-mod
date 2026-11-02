@@ -3,7 +3,9 @@ package com.mehbur.minimap.input;
 import com.mehbur.minimap.MehbursMiniMapClient;
 import com.mehbur.minimap.config.MinimapConfig;
 import com.mehbur.minimap.entity.EntityRadar;
+import java.util.function.Consumer;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.components.CycleButton;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.input.KeyEvent;
 import net.minecraft.network.chat.Component;
@@ -14,11 +16,32 @@ import net.minecraft.network.chat.Component;
  */
 public final class BigMapScreen extends Screen {
 	private static final float ZOOM_PER_SCROLL = 1.25f;
+	private static final int BUTTON_MARGIN = 4;
+	private static final int BUTTON_WIDTH = 98;
+	private static final int BUTTON_HEIGHT = 20;
+	private static final int BUTTON_SPACING = 24;
 
-	private boolean zoomChanged;
+	private boolean settingsChanged;
 
 	public BigMapScreen() {
 		super(Component.translatable("screen.mehburs_minimap.big_map"));
+	}
+
+	@Override
+	protected void init() {
+		MinimapConfig config = MehbursMiniMapClient.config();
+		addLineToggle("screen.mehburs_minimap.big_map.fps", config.showFps, BUTTON_MARGIN, value -> config.showFps = value);
+		// Servers that hide debug info also hide this line, so the button would do nothing there.
+		if (!minecraft.showOnlyReducedInfo()) {
+			addLineToggle("screen.mehburs_minimap.big_map.coordinates", config.showCoordinates, BUTTON_MARGIN + BUTTON_SPACING, value -> config.showCoordinates = value);
+		}
+	}
+
+	private void addLineToggle(String key, boolean value, int y, Consumer<Boolean> save) {
+		addRenderableWidget(CycleButton.onOffBuilder(value).create(BUTTON_MARGIN, y, BUTTON_WIDTH, BUTTON_HEIGHT, Component.translatable(key), (button, newValue) -> {
+			save.accept(newValue);
+			settingsChanged = true;
+		}));
 	}
 
 	@Override
@@ -61,13 +84,13 @@ public final class BigMapScreen extends Screen {
 		// Touchpads send many small scrolls, so the step follows the amount instead of the number of events.
 		float factor = (float) Math.pow(ZOOM_PER_SCROLL, scrollY);
 		config.bigMapZoom = Math.clamp(config.bigMapZoom * factor, MinimapConfig.MIN_ZOOM, MinimapConfig.MAX_ZOOM);
-		zoomChanged = true;
+		settingsChanged = true;
 		return true;
 	}
 
 	@Override
 	public void removed() {
-		if (zoomChanged) {
+		if (settingsChanged) {
 			MehbursMiniMapClient.config().save();
 		}
 	}

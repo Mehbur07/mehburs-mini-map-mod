@@ -17,6 +17,7 @@ import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientChunkEvents;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry;
+import net.fabricmc.fabric.api.client.rendering.v1.hud.VanillaHudElements;
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
@@ -47,6 +48,19 @@ public final class MinimapHud implements AutoCloseable {
 	private static final long MIN_FRAME_MILLIS = 16;
 	/** Animated textures such as water keep moving at this rate while the player stands still. */
 	private static final long IDLE_FRAME_MILLIS = 100;
+	/** The inventory bar and everything stacked on it, which would only stick out from under the big map. */
+	private static final List<Identifier> HIDDEN_BEHIND_BIG_MAP = List.of(
+		VanillaHudElements.HOTBAR,
+		VanillaHudElements.SPECTATOR_MENU,
+		VanillaHudElements.SPECTATOR_TOOLTIP,
+		VanillaHudElements.ARMOR_BAR,
+		VanillaHudElements.HEALTH_BAR,
+		VanillaHudElements.FOOD_BAR,
+		VanillaHudElements.AIR_BAR,
+		VanillaHudElements.MOUNT_HEALTH,
+		VanillaHudElements.INFO_BAR,
+		VanillaHudElements.EXPERIENCE_LEVEL,
+		VanillaHudElements.HELD_ITEM_TOOLTIP);
 
 	private static boolean enabled = true;
 
@@ -67,6 +81,13 @@ public final class MinimapHud implements AutoCloseable {
 	public static void register() {
 		MinimapHud hud = new MinimapHud();
 		HudElementRegistry.addLast(Identifier.fromNamespaceAndPath(MehbursMiniMapClient.MOD_ID, "minimap"), hud::extract);
+		for (Identifier element : HIDDEN_BEHIND_BIG_MAP) {
+			HudElementRegistry.replaceElement(element, original -> (graphics, deltaTracker) -> {
+				if (!(Minecraft.getInstance().gui.screen() instanceof BigMapScreen)) {
+					original.extractRenderState(graphics, deltaTracker);
+				}
+			});
+		}
 		ClientTickEvents.END_CLIENT_TICK.register(hud::tick);
 		ClientChunkEvents.CHUNK_LOAD.register(hud.terrain::onChunkLoaded);
 		ClientLifecycleEvents.CLIENT_STOPPING.register(client -> hud.close());
