@@ -5,7 +5,7 @@
   "name": "Mehbur's Mini Map",
   "description": "A client-side 3D minimap with color-coded entity dots, an animated full-screen map and death markers.",
   "authors": ["Mehbur07"],
-  "license": "All-Rights-Reserved",
+  "license": "MIT",
   "environment": "client",
   "entrypoints": {
     "client": ["com.mehbur.minimap.MehbursMiniMapClient"],

@@ -65,7 +65,7 @@ The mod jar is written to `build/libs/`.
 ./gradlew runClientGameTest
 ```
 
-The client gametests open a real game window and write screenshots to `build/run/clientGameTest/screenshots`.
+The client gametests open a real game window and write screenshots to `build/run/clientGameTest/screenshots`. They also start a dedicated server, and `eula = true` in `build.gradle` accepts the [Minecraft EULA](https://aka.ms/MinecraftEULA) for it, so running them means you accept it.
 
 ## Deploy to a test instance
 
@@ -76,3 +76,7 @@ Copy `local.properties.example` to `local.properties`, set `test_instance_dir`, 
 ```
 
 The instance also needs Fabric API.
+
+## License
+
+[MIT](LICENSE)

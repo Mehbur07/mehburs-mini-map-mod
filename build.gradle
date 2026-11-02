@@ -69,6 +69,14 @@ java {
 	targetCompatibility = JavaVersion.VERSION_25
 }
 
+jar {
+	def archivesName = project.archives_base_name
+	inputs.property 'archivesName', archivesName
+	from('LICENSE') {
+		rename { "${it}_${archivesName}" }
+	}
+}
+
 tasks.withType(JavaCompile).configureEach {
 	options.encoding = 'UTF-8'
 	options.release = 25
