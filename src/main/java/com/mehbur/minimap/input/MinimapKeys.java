@@ -2,6 +2,8 @@ package com.mehbur.minimap.input;
 
 import com.mehbur.minimap.MehbursMiniMapClient;
 import com.mehbur.minimap.death.DeathMarkers;
+import com.mehbur.minimap.waypoint.Navigation;
+import com.mehbur.minimap.waypoint.WaypointStore;
 import com.mojang.blaze3d.platform.InputConstants;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keymapping.v1.KeyMappingHelper;
@@ -23,15 +25,32 @@ public final class MinimapKeys {
 	public static final KeyMapping TOGGLE_DEATH_LINE = new KeyMapping("key.mehburs_minimap.toggle_death_line", DEATH_KEY, CATEGORY);
 	/** Shares its key with the line by default, because key mappings cannot include Shift. Shift then tells the two apart. */
 	public static final KeyMapping REMOVE_DEATH_MARKER = new KeyMapping("key.mehburs_minimap.remove_death_marker", DEATH_KEY, CATEGORY);
+	/** One per saved location, unbound at first because the player picks them. */
+	private static final KeyMapping[] NAVIGATE = navigationKeys();
 
 	private MinimapKeys() {
+	}
+
+	private static KeyMapping[] navigationKeys() {
+		KeyMapping[] keys = new KeyMapping[WaypointStore.SLOTS];
+		for (int slot = 0; slot < keys.length; slot++) {
+			keys[slot] = new KeyMapping("key.mehburs_minimap.navigate_" + (slot + 1), InputConstants.UNKNOWN.getValue(), CATEGORY);
+		}
+		return keys;
 	}
 
 	public static void register() {
 		KeyMappingHelper.registerKeyMapping(TOGGLE_MAP);
 		KeyMappingHelper.registerKeyMapping(TOGGLE_DEATH_LINE);
 		KeyMappingHelper.registerKeyMapping(REMOVE_DEATH_MARKER);
+		for (KeyMapping key : NAVIGATE) {
+			KeyMappingHelper.registerKeyMapping(key);
+		}
 		ClientTickEvents.END_CLIENT_TICK.register(MinimapKeys::tick);
+	}
+
+	public static KeyMapping navigationKey(int slot) {
+		return NAVIGATE[slot];
 	}
 
 	private static void tick(Minecraft minecraft) {
@@ -53,6 +72,24 @@ public final class MinimapKeys {
 				DeathMarkers.INSTANCE.removeMarker(player);
 			}
 		}
+		for (int slot = 0; slot < NAVIGATE.length; slot++) {
+			while (NAVIGATE[slot].consumeClick()) {
+				if (player != null) {
+					Navigation.INSTANCE.toggle(slot, player);
+				}
+			}
+		}
+	}
+
+	/** The location keys for screens that let the game keep running, which receive key events instead of mapping clicks. */
+	static boolean handleNavigationKeys(KeyEvent event, Player player) {
+		for (int slot = 0; slot < NAVIGATE.length; slot++) {
+			if (NAVIGATE[slot].matches(event)) {
+				Navigation.INSTANCE.toggle(slot, player);
+				return true;
+			}
+		}
+		return false;
 	}
 
 	/** The same keys for screens that let the game keep running, which receive key events instead of mapping clicks. */

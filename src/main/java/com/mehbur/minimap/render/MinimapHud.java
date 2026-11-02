@@ -9,6 +9,7 @@ import com.mehbur.minimap.render.terrain.CaveDetector;
 import com.mehbur.minimap.render.terrain.ChunkMesh;
 import com.mehbur.minimap.render.terrain.MapLayerTracker;
 import com.mehbur.minimap.render.terrain.TerrainCache;
+import com.mehbur.minimap.waypoint.Navigation;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.textures.FilterMode;
 import java.util.ArrayList;
@@ -100,6 +101,7 @@ public final class MinimapHud implements AutoCloseable {
 
 	private void tick(Minecraft minecraft) {
 		DeathMarkers.INSTANCE.tick(minecraft);
+		Navigation.INSTANCE.tick(minecraft);
 		if (minecraft.level == null || minecraft.player == null) {
 			terrain.clear();
 			EntityRadar.INSTANCE.clear();
@@ -142,8 +144,10 @@ public final class MinimapHud implements AutoCloseable {
 		animation.update(minecraft.gui.screen() instanceof BigMapScreen, Util.getMillis(), config.animationMillis);
 		float openness = animation.eased();
 
+		String dimension = minecraft.level.dimension().identifier().toString();
 		boolean showCoordinates = config.showCoordinates && !minecraft.showOnlyReducedInfo();
-		int infoLines = (config.showFps ? 1 : 0) + (showCoordinates ? 1 : 0);
+		Component navigationLine = Navigation.INSTANCE.infoLine(dimension, player.position());
+		int infoLines = (config.showFps ? 1 : 0) + (showCoordinates ? 1 : 0) + (navigationLine != null ? 1 : 0);
 		int infoHeight = infoLines == 0 ? 0 : INFO_GAP + infoLines * INFO_LINE_HEIGHT;
 		MapLayout.Rect mini = MapLayout.mini(config.corner, config.mapSize, graphics.guiWidth(), graphics.guiHeight(), infoHeight);
 		MapLayout.Rect big = MapLayout.big(graphics.guiWidth(), graphics.guiHeight(), infoHeight);
@@ -166,7 +170,8 @@ public final class MinimapHud implements AutoCloseable {
 		graphics.blit(target.colorView(), RenderSystem.getSamplerCache().getClampToEdge(filter),
 			rect.x(), rect.y(), rect.x() + rect.size(), rect.bottom(), 0f, 1f, 1f, 0f);
 		drawFrame(graphics, rect);
-		DeathMarkers.INSTANCE.draw(graphics, config, minecraft.level.dimension().identifier().toString(), lastViewProjection, rect, lastPosition, MapCamera.radiusBlocks(lastZoom));
+		DeathMarkers.INSTANCE.draw(graphics, config, dimension, lastViewProjection, rect, lastPosition, MapCamera.radiusBlocks(lastZoom));
+		Navigation.INSTANCE.draw(graphics, config, dimension, lastViewProjection, rect, lastPosition, MapCamera.radiusBlocks(lastZoom));
 		EntityRadar.INSTANCE.draw(graphics, config, lastViewProjection, rect, lastPosition, partialTick);
 		drawPlayerDot(graphics, rect.centerX(), rect.centerY(), OPAQUE | config.playerDotColor);
 
@@ -177,6 +182,10 @@ public final class MinimapHud implements AutoCloseable {
 		}
 		if (showCoordinates) {
 			drawInfoLine(graphics, minecraft.font, Component.literal(coordinates(position)), rect, lineY);
+			lineY += INFO_LINE_HEIGHT;
+		}
+		if (navigationLine != null) {
+			drawInfoLine(graphics, minecraft.font, navigationLine, rect, lineY);
 		}
 	}
 

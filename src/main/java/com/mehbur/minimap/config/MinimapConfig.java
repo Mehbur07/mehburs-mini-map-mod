@@ -35,6 +35,7 @@ public final class MinimapConfig {
 	@JsonAdapter(HexColorAdapter.class) public int arrowColor = 0x8B5A2B;
 	@JsonAdapter(HexColorAdapter.class) public int itemColor = 0xFFFF33;
 	@JsonAdapter(HexColorAdapter.class) public int enderPearlColor = 0xBC13FE;
+	@JsonAdapter(HexColorAdapter.class) public int navigationColor = 0xFF2DCE;
 
 	public int mapSize = 80;
 	public Corner corner = Corner.TOP_LEFT;

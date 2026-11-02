@@ -1,4 +1,4 @@
-package com.mehbur.minimap.death;
+package com.mehbur.minimap.render;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 

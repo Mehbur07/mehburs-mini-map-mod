@@ -89,6 +89,7 @@ public final class MinimapConfigScreen {
 		color("arrow_color", config.arrowColor, defaults.arrowColor, value -> config.arrowColor = value);
 		color("item_color", config.itemColor, defaults.itemColor, value -> config.itemColor = value);
 		color("ender_pearl_color", config.enderPearlColor, defaults.enderPearlColor, value -> config.enderPearlColor = value);
+		color("navigation_color", config.navigationColor, defaults.navigationColor, value -> config.navigationColor = value);
 	}
 
 	private void addDeathCategory() {

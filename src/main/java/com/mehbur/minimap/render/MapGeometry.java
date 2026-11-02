@@ -1,4 +1,4 @@
-package com.mehbur.minimap.death;
+package com.mehbur.minimap.render;
 
 /** Plain 2D math for marks on the map. */
 final class MapGeometry {

@@ -31,7 +31,7 @@ import net.minecraft.network.chat.contents.TranslatableContents;
 public class MapConfigGameTest implements FabricClientGameTest {
 	private static final String MOD_ID = "mehburs_minimap";
 	private static final int SETTLE_TICKS = 20;
-	private static final int EXPECTED_ENTRIES = 26;
+	private static final int EXPECTED_ENTRIES = 27;
 	private static final int NEW_PLAYER_COLOR = 0xFF00FF;
 	private static final int NEW_MAP_SIZE = 150;
 	private static final int NEW_ZOOM_PERCENT = 200;
@@ -148,7 +148,7 @@ public class MapConfigGameTest implements FabricClientGameTest {
 		check(!config.showMobs && !config.showPlayers && !config.showItems && !config.showArrows && !config.showEnderPearls, "the dot toggles must have turned off");
 		check(!config.deathLineEnabled && !config.deathTriangleEnabled, "the death toggles must have turned off");
 		for (int color : List.of(config.playerDotColor, config.passiveColor, config.neutralColor, config.hostileColor, config.bossColor,
-			config.otherPlayerColor, config.arrowColor, config.itemColor, config.enderPearlColor)) {
+			config.otherPlayerColor, config.arrowColor, config.itemColor, config.enderPearlColor, config.navigationColor)) {
 			check(color == NEW_PLAYER_COLOR, "a color was saved as " + Integer.toHexString(color));
 		}
 		Path file = FabricLoader.getInstance().getConfigDir().resolve(MOD_ID + ".json");
@@ -191,6 +191,7 @@ public class MapConfigGameTest implements FabricClientGameTest {
 		config.arrowColor = defaults.arrowColor;
 		config.itemColor = defaults.itemColor;
 		config.enderPearlColor = defaults.enderPearlColor;
+		config.navigationColor = defaults.navigationColor;
 		config.save();
 	}
 

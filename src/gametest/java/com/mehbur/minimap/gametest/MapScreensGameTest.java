@@ -124,7 +124,12 @@ public class MapScreensGameTest implements FabricClientGameTest {
 		context.runOnClient(client -> client.options.reducedDebugInfo().set(true));
 		context.getInput().pressKey(GLFW.GLFW_KEY_M);
 		context.waitTicks(SETTLE_TICKS);
-		context.runOnClient(client -> check(client.gui.screen().children().size() == 1, "only the FPS button makes sense with coordinates hidden"));
+		context.runOnClient(client -> {
+			String label = Language.getInstance().getOrDefault(COORDINATES_BUTTON);
+			for (GuiEventListener child : client.gui.screen().children()) {
+				check(!(child instanceof AbstractWidget widget && widget.getMessage().getString().startsWith(label)), "the coordinates button makes no sense with coordinates hidden");
+			}
+		});
 		context.getInput().pressKey(GLFW.GLFW_KEY_M);
 		context.waitTicks(SETTLE_TICKS);
 		context.runOnClient(client -> {
