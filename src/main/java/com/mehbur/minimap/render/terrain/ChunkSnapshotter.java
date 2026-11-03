@@ -20,6 +20,7 @@ import net.minecraft.core.Direction;
 import net.minecraft.tags.BlockTags;
 import net.minecraft.tags.FluidTags;
 import net.minecraft.util.RandomSource;
+import net.minecraft.world.level.LightLayer;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.chunk.LevelChunk;
@@ -33,6 +34,8 @@ final class ChunkSnapshotter {
 	/** Below the cut, floors deeper than this stay dark. Reaches the Nether's lava sea from most of its caves. */
 	private static final int MAX_LAYER_DEPTH = 64;
 	private static final int WHITE = 0xFFFFFF;
+	/** How far past the chunk's edges an opening into a hollow under overhangs is looked for. */
+	private static final int OPENING_REACH = 8;
 
 	private record BlockFaces(FaceSprite top, FaceSprite side) {
 	}
@@ -62,6 +65,18 @@ final class ChunkSnapshotter {
 					snapshot.groundHeights[index] = ChunkSnapshot.UNKNOWN;
 				} else {
 					readHeights(level, source, (chunkX << 4) + x, (chunkZ << 4) + z, layerY, snapshot, index);
+				}
+			}
+		}
+		int lowestOpen = lowestOpenFloor(nearby, layerY, snapshot);
+		for (int z = -1; z <= ChunkSnapshot.SIZE; z++) {
+			for (int x = -1; x <= ChunkSnapshot.SIZE; x++) {
+				int index = ChunkSnapshot.gridIndex(x, z);
+				int floor = snapshot.floorHeights[index];
+				if (floor != ChunkSnapshot.UNKNOWN && floor != ChunkSnapshot.NO_BLOCK) {
+					LevelChunk source = nearby[nearbyIndex(x, z)];
+					int ground = findGroundBelowGap(level, source, (chunkX << 4) + x, (chunkZ << 4) + z, floor, lowestOpen);
+					snapshot.groundHeights[index] = ground == ChunkSnapshot.NO_BLOCK ? floor : ground;
 				}
 			}
 		}
@@ -104,8 +119,33 @@ final class ChunkSnapshotter {
 		int floor = findFloor(level, chunk, worldX, worldZ, surface);
 		snapshot.surfaceHeights[index] = surface;
 		snapshot.floorHeights[index] = floor;
-		int ground = floor == ChunkSnapshot.NO_BLOCK ? ChunkSnapshot.NO_BLOCK : findGroundBelowGap(level, chunk, worldX, worldZ, floor);
-		snapshot.groundHeights[index] = ground == ChunkSnapshot.NO_BLOCK ? floor : ground;
+		// Filled in once every floor around is known.
+		snapshot.groundHeights[index] = floor;
+	}
+
+	/**
+	 * The lowest floor in and around the chunk. A hollow under rock that lies deeper has no opening the
+	 * camera could look through, so the search for ground under overhangs stops there.
+	 */
+	private static int lowestOpenFloor(LevelChunk[] nearby, int layerY, ChunkSnapshot snapshot) {
+		int lowest = Integer.MAX_VALUE;
+		for (int floor : snapshot.floorHeights) {
+			if (floor != ChunkSnapshot.UNKNOWN && floor != ChunkSnapshot.NO_BLOCK) {
+				lowest = Math.min(lowest, floor);
+			}
+		}
+		if (layerY == MapLayerTracker.SURFACE) {
+			// A cliff a few blocks into the next chunk can open a hollow that reaches under this one.
+			for (int z = -OPENING_REACH; z < ChunkSnapshot.SIZE + OPENING_REACH; z++) {
+				for (int x = -OPENING_REACH; x < ChunkSnapshot.SIZE + OPENING_REACH; x++) {
+					LevelChunk source = nearby[nearbyIndex(x, z)];
+					if (source != null) {
+						lowest = Math.min(lowest, source.getHeight(Heightmap.Types.MOTION_BLOCKING, x & 15, z & 15));
+					}
+				}
+			}
+		}
+		return lowest;
 	}
 
 	/** What the heightmap gives on the surface, for a world that ends at the cut. Below the world's bottom when nothing is in reach. */
@@ -194,15 +234,24 @@ final class ChunkSnapshotter {
 	 * The tilted camera sees under tree tops and overhangs, where only the top layer would leave a hole.
 	 * Returns the Y of the first ground block below such a gap, or {@link ChunkSnapshot#NO_BLOCK} without a gap.
 	 */
-	private int findGroundBelowGap(ClientLevel level, LevelChunk chunk, int worldX, int worldZ, int floor) {
+	private int findGroundBelowGap(ClientLevel level, LevelChunk chunk, int worldX, int worldZ, int floor, int lowestOpen) {
 		int deepest = Math.max(level.getMinY(), floor - MAX_SIDE_DEPTH);
 		boolean gap = chunk.getBlockState(pos.set(worldX, floor, worldZ)).is(BlockTags.LEAVES);
+		boolean underRock = false;
 		for (int y = floor - 1; y >= deepest; y--) {
 			BlockState state = chunk.getBlockState(pos.set(worldX, y, worldZ));
 			if (Heightmap.Types.MOTION_BLOCKING_NO_LEAVES.isOpaque().test(state)) {
-				return gap ? y : ChunkSnapshot.NO_BLOCK;
+				if (gap) {
+					return y;
+				}
+				underRock = true;
+				if (y - 1 <= lowestOpen) {
+					return ChunkSnapshot.NO_BLOCK;
+				}
+			} else if (!underRock || level.getBrightness(LightLayer.SKY, pos) > 0) {
+				// Under thick rock only daylight tells a hollow open to the side from a sealed cave nobody can see.
+				gap = true;
 			}
-			gap = true;
 		}
 		return ChunkSnapshot.NO_BLOCK;
 	}

@@ -4,9 +4,16 @@ import com.mehbur.minimap.MehbursMiniMapClient;
 import com.mehbur.minimap.config.MinimapConfig;
 import com.mehbur.minimap.input.BigMapScreen;
 import com.mehbur.minimap.input.MinimapKeys;
+import com.mehbur.minimap.render.MapLayout;
 import com.mehbur.minimap.render.terrain.MapLayerTracker;
 import com.mehbur.minimap.render.terrain.TerrainCache;
+import com.mojang.blaze3d.platform.NativeImage;
 import com.mojang.datafixers.util.Pair;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.UncheckedIOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import net.fabricmc.fabric.api.client.gametest.v1.FabricClientGameTest;
 import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
 import net.fabricmc.fabric.api.client.gametest.v1.context.TestServerContext;
@@ -28,6 +35,8 @@ public class MapTerrainGameTest implements FabricClientGameTest {
 	private static final int MESH_SETTLE_TICKS = 80;
 	private static final int BIOME_SEARCH_RADIUS = 6400;
 	private static final int DEEP_WATER_Y = 40;
+	/** The clear color of the map's render target, where no terrain was drawn. */
+	private static final int MAP_BACKGROUND_RGB = 0x05080D;
 
 	@Override
 	public void runTest(ClientGameTestContext context) {
@@ -35,6 +44,7 @@ public class MapTerrainGameTest implements FabricClientGameTest {
 		testLandmarks(context);
 		testBigMap(context);
 		testBuiltCave(context);
+		testOverhang(context);
 		testRealTerrain(context);
 	}
 
@@ -218,6 +228,58 @@ public class MapTerrainGameTest implements FabricClientGameTest {
 		if (actual != expected) {
 			throw new AssertionError("Map layer in " + where + ": expected " + expected + ", was " + actual);
 		}
+	}
+
+	/**
+	 * A hollow under a cliff, open toward the player. The map used to read only the cliff's top, so its
+	 * inside showed the empty background in black.
+	 */
+	private static void testOverhang(ClientGameTestContext context) {
+		try (TestSingleplayerContext world = context.worldBuilder().create()) {
+			TestServerContext server = world.getServer();
+			server.runCommand("time set noon");
+			server.runCommand("gamerule spawn_mobs false");
+			server.runCommand("gamemode creative @a");
+			server.runCommand("fill -12 -60 -20 12 -45 -6 stone");
+			server.runCommand("fill -8 -60 -14 8 -54 -6 air"); // nine blocks of rock over the hollow
+			server.runCommand("fill -8 -61 -14 8 -61 -6 gold_block");
+			lookAt(context, server, "tp @a 0.5 -60 0.5 180 0");
+			Path screenshot = context.takeScreenshot("overhang-hollow");
+
+			MapLayout.Rect rect = context.computeOnClient(client -> MapLayout.mini(MinimapConfig.Corner.TOP_LEFT,
+				MehbursMiniMapClient.config().mapSize, client.getWindow().getGuiScaledWidth(), client.getWindow().getGuiScaledHeight(), 0));
+			int scale = context.computeOnClient(client -> client.getWindow().getGuiScale());
+			int background = countPixels(screenshot, rect, scale, MAP_BACKGROUND_RGB);
+			if (background > 0) {
+				throw new AssertionError(background + " map pixels show the empty background under the overhang");
+			}
+		}
+	}
+
+	private static int countPixels(Path screenshot, MapLayout.Rect rect, int scale, int rgb) {
+		try (InputStream stream = Files.newInputStream(screenshot); NativeImage image = NativeImage.read(stream)) {
+			int count = 0;
+			// One pixel in from the frame on every side.
+			for (int y = (rect.y() + 1) * scale; y < (rect.y() + rect.size() - 1) * scale; y++) {
+				for (int x = (rect.x() + 1) * scale; x < (rect.x() + rect.size() - 1) * scale; x++) {
+					if (closeTo(image.getPixel(x, y), rgb)) {
+						count++;
+					}
+				}
+			}
+			return count;
+		} catch (IOException e) {
+			throw new UncheckedIOException(e);
+		}
+	}
+
+	private static boolean closeTo(int argb, int rgb) {
+		for (int shift = 0; shift < 24; shift += Byte.SIZE) {
+			if (Math.abs((argb >> shift & 0xFF) - (rgb >> shift & 0xFF)) > 2) {
+				return false;
+			}
+		}
+		return true;
 	}
 
 	/** Flat world with a block pattern at known compass positions, to check rotation and live updates. */
